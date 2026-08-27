@@ -95,37 +95,6 @@ LLMOps/
 
 ---
 
-##  Using the Custom Agents
-
-This workshop uses three specialized Claude agents:
-
-### **Athena** (Planner)
-- **Model:** Claude Opus 5
-- **Role:** Curriculum design, learning progressions
-- **Usage:** `@athena plan day N of LLMOps workshop`
-
-### **Gaia** (Executor)
-- **Model:** Claude Haiku 4.5
-- **Role:** Write clean, efficient notebooks
-- **Usage:** `@gaia create notebook for [day/topic]`
-
-### **Nemesis** (Validator)
-- **Model:** Claude Sonnet 5
-- **Role:** Quality review, correctness validation
-- **Usage:** `@nemesis review [notebook/guide]`
-
-### Example Workflow
-
-```
-1. @athena: Plan structure for Day 2
-2. @gaia: Write Day 2 theory guide
-3. @gaia: Write Day 2 notebook
-4. @nemesis: Review both for quality
-5. Commit to git
-```
-
----
-
 ##  Resources
 
 ### Must-Read Papers
