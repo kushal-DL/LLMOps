@@ -1,0 +1,1603 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 3: Fine-Tuning Ops — LLMOps Workshop</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --sidebar-bg: #1e293b;
+      --sidebar-text: #cbd5e1;
+      --accent: #3b82f6;
+      --accent-light: #dbeafe;
+      --accent-dark: #1d4ed8;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --code-bg: #1e293b;
+      --code-text: #e2e8f0;
+      --green: #10b981;
+      --purple: #8b5cf6;
+      --orange: #f59e0b;
+      --radius: 12px;
+      --shadow: 0 1px 3px 0 rgb(0 0 0/.1),0 1px 2px -1px rgb(0 0 0/.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0/.1),0 4px 6px -4px rgb(0 0 0/.1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+      line-height: 1.65;
+    }
+
+    /* ── Sidebar ─────────────────────────────────── */
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: var(--sidebar-bg);
+      color: var(--sidebar-text);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 1.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: .15rem;
+      transition: width .25s ease, min-width .25s ease, padding .25s ease;
+    }
+
+    .sidebar.collapsed {
+      width: 48px;
+      min-width: 48px;
+      padding: 1rem .4rem;
+      overflow: hidden;
+    }
+
+    .sidebar.collapsed .sidebar-logo,
+    .sidebar.collapsed .sidebar-day,
+    .sidebar.collapsed .sidebar-section,
+    .sidebar.collapsed a span,
+    .sidebar.collapsed a { opacity: 0; pointer-events: none; }
+
+    .sidebar.collapsed .sidebar-toggle { opacity: 1; pointer-events: auto; }
+
+    .sidebar-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border: none;
+      border-radius: 6px;
+      background: rgba(255,255,255,.1);
+      color: #cbd5e1;
+      cursor: pointer;
+      transition: background .15s, transform .25s;
+      flex-shrink: 0;
+      margin-bottom: .5rem;
+      align-self: flex-end;
+    }
+
+    .sidebar-toggle:hover { background: rgba(255,255,255,.18); color: white; }
+
+    .sidebar.collapsed .sidebar-toggle {
+      align-self: center;
+      margin-bottom: 0;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+
+    .sidebar-logo {
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: .75rem;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: opacity .2s;
+    }
+
+    .sidebar-day {
+      font-size: .85rem;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 1rem;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: opacity .2s;
+    }
+
+    .sidebar-section {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: #475569;
+      margin: 1rem 0 .35rem .4rem;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: opacity .2s;
+    }
+
+    .sidebar a {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .42rem .6rem;
+      border-radius: 6px;
+      font-size: .82rem;
+      color: var(--sidebar-text);
+      text-decoration: none;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: background .15s, color .15s, opacity .2s;
+    }
+
+    .sidebar a:hover, .sidebar a.active {
+      background: rgba(59,130,246,.18);
+      color: #93c5fd;
+    }
+
+    .sidebar a .icon { font-size: 1rem; flex-shrink: 0; }
+
+    /* ── Main content ────────────────────────────── */
+    .main {
+      flex: 1;
+      min-width: 0;
+      padding: 2.5rem clamp(1rem, 4vw, 3rem);
+      max-width: 900px;
+    }
+
+    section { margin-bottom: 4rem; scroll-margin-top: 2rem; }
+
+    h1 { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 800; line-height: 1.2; margin-bottom: .5rem; }
+    h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); }
+    h3 { font-size: 1.1rem; font-weight: 600; margin: 1.5rem 0 .75rem; }
+    h4 { font-size: .95rem; font-weight: 600; margin: 1rem 0 .5rem; color: var(--text-muted); }
+
+    p { margin-bottom: .9rem; }
+    ul, ol { margin: .75rem 0 .75rem 1.5rem; }
+    li { margin-bottom: .35rem; }
+
+    /* inline code */
+    :not(pre) > code {
+      background: var(--accent-light);
+      color: var(--accent-dark);
+      border-radius: 4px;
+      padding: .15em .4em;
+      font-size: .87em;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    /* code blocks */
+    pre {
+      background: var(--code-bg);
+      color: var(--code-text);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      overflow-x: auto;
+      font-size: .83rem;
+      line-height: 1.6;
+      margin: 1rem 0 1.5rem;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+
+    /* ── Cards / callouts ────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin: 1.25rem 0;
+      box-shadow: var(--shadow);
+    }
+
+    .callout {
+      border-radius: var(--radius);
+      padding: 1rem 1.25rem;
+      margin: 1.25rem 0;
+      border-left: 4px solid;
+    }
+    .callout-blue  { background: #eff6ff; border-color: var(--accent); color: #1e3a8a; }
+    .callout-green { background: #f0fdf4; border-color: var(--green);  color: #14532d; }
+    .callout-amber { background: #fffbeb; border-color: var(--orange); color: #78350f; }
+    .callout-purple{ background: #f5f3ff; border-color: var(--purple); color: #4c1d95; }
+
+    .callout strong { display: block; font-size: .9rem; margin-bottom: .3rem; }
+
+    /* ── Tables ──────────────────────────────────── */
+    .table-wrap { overflow-x: auto; margin: 1rem 0 1.5rem; }
+    table { border-collapse: collapse; width: 100%; font-size: .875rem; }
+    th { background: var(--sidebar-bg); color: var(--sidebar-text); text-align: left; padding: .6rem 1rem; font-weight: 600; }
+    td { padding: .55rem 1rem; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: #f8fafc; }
+
+    /* ── Diagram containers ──────────────────────── */
+    .diagram-container {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      margin: 1.5rem 0;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .diagram-title {
+      font-size: .78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+    }
+
+    /* ── Hero ────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border-radius: 16px;
+      padding: 2.5rem;
+      margin-bottom: 3rem;
+      color: white;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 70% 50%, rgba(139,92,246,.25) 0%, transparent 60%);
+    }
+
+    .hero h1 { color: white; position: relative; }
+
+    .hero-sub {
+      color: #94a3b8;
+      font-size: 1.05rem;
+      margin: .5rem 0 1.5rem;
+      position: relative;
+    }
+
+    .hero-tags { display: flex; flex-wrap: wrap; gap: .5rem; position: relative; }
+
+    .hero-tag {
+      background: rgba(255,255,255,.1);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 20px;
+      padding: .3rem .85rem;
+      font-size: .8rem;
+      font-weight: 600;
+    }
+
+    .hero-tag.accent { background: rgba(139,92,246,.35); border-color: rgba(139,92,246,.5); color: #c4b5fd; }
+
+    /* ── Badges ──────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: .2rem .6rem;
+      border-radius: 20px;
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+    }
+
+    .badge-blue   { background: var(--accent-light); color: var(--accent-dark); }
+    .badge-green  { background: #d1fae5; color: #065f46; }
+    .badge-purple { background: #ede9fe; color: #4c1d95; }
+    .badge-amber  { background: #fef3c7; color: #92400e; }
+
+    /* ── Pipeline flow ───────────────────────────── */
+    .pipeline {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: .5rem;
+      padding: 1rem;
+      background: #f8fafc;
+      border-radius: 10px;
+      margin: 1rem 0;
+    }
+
+    .pipeline-step {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: .5rem 1rem;
+      font-size: .82rem;
+      font-weight: 600;
+      text-align: center;
+      flex-shrink: 0;
+      transition: all .3s;
+    }
+
+    .pipeline-step.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+      transform: scale(1.05);
+      box-shadow: 0 0 0 3px rgba(59,130,246,.25);
+    }
+
+    .pipeline-arrow {
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+
+    /* ── LoRA matrix visualization ───────────────── */
+    .lora-matrix-container {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding: 1rem;
+    }
+
+    .matrix-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .4rem;
+    }
+
+    .matrix-label {
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .matrix-visual {
+      display: grid;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 2px solid var(--border);
+    }
+
+    .matrix-cell {
+      width: 14px;
+      height: 14px;
+      background: #e2e8f0;
+      transition: background .3s;
+    }
+
+    .matrix-cell.frozen { background: #cbd5e1; }
+    .matrix-cell.trainable { background: var(--purple); opacity: .7; }
+    .matrix-cell.trainable.active { opacity: 1; box-shadow: 0 0 4px rgba(139,92,246,.8); }
+
+    .matrix-op {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      align-self: center;
+    }
+
+    /* ── Quant bar chart ─────────────────────────── */
+    .quant-bars { display: flex; flex-direction: column; gap: .75rem; }
+
+    .quant-bar-row {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+    }
+
+    .quant-bar-label {
+      width: 80px;
+      font-size: .8rem;
+      font-weight: 600;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .quant-bar-track {
+      flex: 1;
+      height: 28px;
+      background: #f1f5f9;
+      border-radius: 6px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .quant-bar-fill {
+      height: 100%;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      padding-left: .5rem;
+      font-size: .75rem;
+      font-weight: 700;
+      color: white;
+      transition: width 1s cubic-bezier(.4,0,.2,1);
+      white-space: nowrap;
+    }
+
+    /* ── LR canvas ───────────────────────────────── */
+    canvas { display: block; width: 100%; border-radius: 8px; }
+
+    /* ── Responsive ──────────────────────────────── */
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .sidebar { width: 100%; min-width: 100%; height: auto; position: relative; flex-direction: row; flex-wrap: wrap; padding: .75rem 1rem; }
+      .main { padding: 1.5rem 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar ─────────────────────────────────── -->
+<nav class="sidebar" id="sidebar">
+  <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
+
+  <div class="sidebar-logo">LLMOps Workshop</div>
+  <div class="sidebar-day">Day 3: Fine-Tuning Ops</div>
+
+  <div class="sidebar-section">Overview</div>
+  <a href="#big-picture"><span class="icon">&#128640;</span><span>Big Picture</span></a>
+
+  <div class="sidebar-section">Sections</div>
+  <a href="#sec1"><span class="icon">&#128230;</span><span>1. Install Dependencies</span></a>
+  <a href="#sec2"><span class="icon">&#128272;</span><span>2. Environment Setup</span></a>
+  <a href="#sec3"><span class="icon">&#128202;</span><span>3. Training Dataset</span></a>
+  <a href="#sec4"><span class="icon">&#129504;</span><span>4. Load Model + LoRA</span></a>
+  <a href="#sec5"><span class="icon">&#128290;</span><span>5. Tokenize Dataset</span></a>
+  <a href="#sec6"><span class="icon">&#128293;</span><span>6. Training</span></a>
+  <a href="#sec7"><span class="icon">&#128190;</span><span>7. Save &amp; Inference</span></a>
+  <a href="#sec8"><span class="icon">&#128269;</span><span>8. Adapter Config</span></a>
+  <a href="#sec9"><span class="icon">&#128640;</span><span>9. Upload to Kaggle</span></a>
+  <a href="#sec10"><span class="icon">&#129480;</span><span>10. Merge Adapters</span></a>
+  <a href="#sec11"><span class="icon">&#128196;</span><span>11. Export to GGUF</span></a>
+  <a href="#sec12"><span class="icon">&#128247;</span><span>12. Quantize Q4_K_M</span></a>
+  <a href="#sec13"><span class="icon">&#128640;</span><span>13. Download &amp; Deploy</span></a>
+
+  <div class="sidebar-section">Wrap-up</div>
+  <a href="#summary"><span class="icon">&#10003;</span><span>Summary</span></a>
+</nav>
+
+<!-- ── Main ───────────────────────────────────── -->
+<main class="main" id="mainContent">
+
+  <!-- ── Hero ─────────────────────────────────────── -->
+  <div class="hero">
+    <h1>Day 3: Fine-Tuning Ops</h1>
+    <p class="hero-sub">Build a Domain Expert LLM &mdash; LoRA Adapters &rarr; Merging &rarr; GGUF &rarr; Ollama</p>
+    <div class="hero-tags">
+      <span class="hero-tag">~3 hours</span>
+      <span class="hero-tag">~20 min GPU time</span>
+      <span class="hero-tag accent">Gemma-2-2b (2.6B params)</span>
+      <span class="hero-tag">LoRA / PEFT</span>
+      <span class="hero-tag">llama.cpp / GGUF</span>
+    </div>
+  </div>
+
+  <!-- ── Big Picture ──────────────────────────────── -->
+  <section id="big-picture">
+    <h2>&#128640; Big Picture: Full Fine-Tuning Pipeline</h2>
+    <p>Day 3 takes you from a raw pre-trained base model all the way to a 1.6 GB quantised file running on your laptop. The key insight: you never touch the 2.6B base-model weights. Instead, LoRA adds thin trainable layers on top, and the whole pipeline is <em>modular</em> &mdash; adapters can be swapped onto any copy of the base model.</p>
+
+    <div class="diagram-container">
+      <div class="diagram-title">Pipeline overview (click to step through)</div>
+      <div class="pipeline" id="mainPipeline">
+        <div class="pipeline-step" id="ps-data">Travel Q&amp;A Dataset</div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-step" id="ps-tokenize">Tokenizer</div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-step" id="ps-lora">LoRA Fine-tune</div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-step" id="ps-adapters">Adapters (~50 MB)</div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-step" id="ps-merge">Merge W<sub>0</sub>+BA</div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-step" id="ps-gguf">GGUF Export (FP16 ~5 GB)</div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-step" id="ps-quant">Q4_K_M (~1.6 GB)</div>
+        <div class="pipeline-arrow">&rarr;</div>
+        <div class="pipeline-step" id="ps-ollama">Ollama / llama.cpp</div>
+      </div>
+      <button onclick="stepPipeline()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Step Through</button>
+    </div>
+
+    <div class="callout callout-blue">
+      <strong>Why LoRA?</strong>
+      Fine-tuning all 2.6B parameters needs ~40 GB VRAM and hours of compute. LoRA (Low-Rank Adaptation) inserts small trainable matrices alongside frozen weights, training only ~13 M parameters &mdash; 0.5% of the total &mdash; in minutes on a free T4 GPU.
+    </div>
+
+    <!-- LoRA math visualization -->
+    <div class="diagram-container">
+      <div class="diagram-title">LoRA: Low-Rank Matrix Decomposition</div>
+      <p style="font-size:.9rem;margin-bottom:1rem;">Each weight matrix W<sub>0</sub> (frozen) gets two tiny trainable companions B and A. Only B and A receive gradient updates. At inference, their product is added to W<sub>0</sub>:</p>
+      <div style="text-align:center;font-size:1.1rem;font-weight:700;margin:1rem 0;font-family:serif;">
+        W<sub>adapted</sub> = W<sub>0</sub> + &Delta;W = W<sub>0</sub> + B &middot; A
+      </div>
+      <div style="text-align:center;font-size:.85rem;color:var(--text-muted);margin-bottom:1.5rem;">
+        B &isin; &Ropf;<sup>d &times; r</sup>, &nbsp; A &isin; &Ropf;<sup>r &times; k</sup>, &nbsp; r &laquo; min(d, k) &nbsp; &rarr; &nbsp; r = 16 in this notebook
+      </div>
+      <div class="lora-matrix-container" id="loraViz">
+        <div class="matrix-block">
+          <div class="matrix-label">W<sub>0</sub> (frozen, d&times;k)</div>
+          <div class="matrix-visual" id="w0-matrix" style="grid-template-columns:repeat(12,14px);"></div>
+        </div>
+        <div class="matrix-op">+</div>
+        <div class="matrix-block">
+          <div class="matrix-label">B (d&times;r, trainable)</div>
+          <div class="matrix-visual" id="b-matrix" style="grid-template-columns:repeat(3,14px);"></div>
+        </div>
+        <div class="matrix-op">&middot;</div>
+        <div class="matrix-block">
+          <div class="matrix-label">A (r&times;k, trainable)</div>
+          <div class="matrix-visual" id="a-matrix" style="grid-template-columns:repeat(12,14px);"></div>
+        </div>
+      </div>
+      <button onclick="animateLoRA()" style="display:block;margin:1rem auto 0;padding:.4rem 1rem;background:var(--purple);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Animate Training</button>
+    </div>
+  </section>
+
+  <!-- ── Section 1 ─────────────────────────────── -->
+  <section id="sec1">
+    <h2>1. Install Dependencies</h2>
+    <p>The notebook pins exact versions to ensure reproducibility &mdash; Kaggle's default environment ships older versions that can conflict.</p>
+    <pre><code># 1. Install the Stable Stack
+!pip install --no-cache-dir \
+    transformers==4.46.0 \
+    peft==0.13.0 \
+    accelerate \
+    trl \
+    datasets
+
+# 2. Remove potential conflicts
+!pip uninstall -y bitsandbytes
+
+# 3. Restart kernel so the new transformers version is picked up
+import os, signal
+print("Install complete &mdash; restarting kernel.")
+os.kill(os.getpid(), signal.SIGKILL)</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Package</th><th>Role</th></tr>
+        <tr><td><code>transformers==4.46.0</code></td><td>Loads Gemma-2-2b, <code>Trainer</code>, <code>TrainingArguments</code></td></tr>
+        <tr><td><code>peft==0.13.0</code></td><td>LoRA adapters &mdash; <code>LoraConfig</code>, <code>get_peft_model</code></td></tr>
+        <tr><td><code>accelerate</code></td><td>Mixed-precision training, device mapping</td></tr>
+        <tr><td><code>trl</code></td><td>Training utilities for causal LM fine-tuning</td></tr>
+        <tr><td><code>datasets</code></td><td>HuggingFace Dataset objects + <code>.map()</code> API</td></tr>
+      </table>
+    </div>
+
+    <div class="callout callout-amber">
+      <strong>Why pin versions?</strong>
+      Kaggle's system environment pre-installs an older <code>transformers</code>. Without explicit version pins, Gemma-2-2b's <code>GemmaForCausalLM</code> class may not be available, causing cryptic import errors. The kernel restart (<code>os.kill(os.getpid(), signal.SIGKILL)</code>) forces Python to reload from the newly installed versions.
+    </div>
+  </section>
+
+  <!-- ── Section 2 ─────────────────────────────── -->
+  <section id="sec2">
+    <h2>2. Environment Setup &amp; Authentication</h2>
+    <p>Gemma-2-2b is a <strong>gated model</strong> on HuggingFace &mdash; you must accept the licence before the API token grants download access. Kaggle Secrets lets you inject that token without it ever appearing in notebook source code.</p>
+
+    <pre><code>import torch
+from kaggle_secrets import UserSecretsClient
+from huggingface_hub import login
+
+user_secrets = UserSecretsClient()
+HF_TOKEN = user_secrets.get_secret("HF_TOKEN")
+os.environ["HF_TOKEN"] = HF_TOKEN
+login(token=HF_TOKEN)
+
+print("CUDA available:", torch.cuda.is_available())
+print("Device Name:", torch.cuda.get_device_name(0))
+print("HuggingFace authenticated via Kaggle Secret.")</code></pre>
+
+    <div class="card">
+      <h3>Setting Up the HF Token</h3>
+      <ol>
+        <li>Go to <strong>huggingface.co/google/gemma-2-2b</strong> and accept the model licence.</li>
+        <li>Create an access token at <strong>huggingface.co &rarr; Settings &rarr; Access Tokens</strong>.</li>
+        <li>In Kaggle: <strong>Notebook &rarr; Add-ons &rarr; Secrets &rarr; Add New Secret</strong>.</li>
+        <li>Name: <code>HF_TOKEN</code>, Value: your token.</li>
+        <li>Enable the secret in the notebook's sidebar before running.</li>
+      </ol>
+    </div>
+
+    <div class="callout callout-blue">
+      <strong>GPU check</strong>
+      Kaggle's free tier gives you T4 (16 GB VRAM) or P100 (16 GB). Gemma-2-2b in FP16 uses ~6 GB, leaving ~10 GB headroom for activations and the optimizer states of LoRA adapters.
+    </div>
+  </section>
+
+  <!-- ── Section 3 ─────────────────────────────── -->
+  <section id="sec3">
+    <h2>3. Training Dataset &mdash; Travel Industry Q&amp;A</h2>
+    <p>The notebook uses the <strong>Alpaca instruction-tuning format</strong>: each example has an <code>instruction</code>, optional <code>input</code> context, and the desired <code>output</code>. This is the same format used to fine-tune Llama, Mistral, and many production models.</p>
+
+    <div class="callout callout-purple">
+      <strong>Domain: Global Distribution Systems (GDS)</strong>
+      The dataset covers airline booking systems &mdash; the complex middleware that travel agents use worldwide. This is deliberately a narrow, technical domain where a general-purpose LLM underperforms.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Topic cluster</th><th>What the model learns</th></tr>
+        <tr><td><strong>PNR structure</strong></td><td>The 5 mandatory fields (PRINT mnemonic); orphan-record debugging</td></tr>
+        <tr><td><strong>SSR / OSI codes</strong></td><td>Special service requests &mdash; wheelchair types (WCHR/WCBD), battery regulations</td></tr>
+        <tr><td><strong>Cryptic commands</strong></td><td>Amadeus/Sabre shorthand vs GUI equivalents; log-level debugging</td></tr>
+        <tr><td><strong>Regulatory</strong></td><td>DOT Part 382, accessibility requirements, cross-system sync failures</td></tr>
+      </table>
+    </div>
+
+    <h3>Alpaca Format</h3>
+    <pre><code>raw_data = [
+ {
+  "instruction": "Explain PNR Structure to a junior agent.",
+  "input": "A trainee is struggling to remember the mandatory fields.",
+  "output": "Think of a PNR as the 'Identity Document' of a trip. To make it official ..."
+ },
+ ...
+]
+
+# Format as instruction/response prompt
+def format_example(ex):
+    if ex["input"]:
+        return f"### Instruction:\n{ex['instruction']}\n\n### Input:\n{ex['input']}\n\n### Response:\n{ex['output']}"
+    return f"### Instruction:\n{ex['instruction']}\n\n### Response:\n{ex['output']}"
+
+texts = [format_example(ex) for ex in raw_data]
+train_ds = Dataset.from_dict({"text": texts})</code></pre>
+
+    <!-- GDS cluster diagram -->
+    <div class="diagram-container">
+      <div class="diagram-title">Dataset Topic Clusters</div>
+      <div id="gds-clusters" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;padding:.5rem;">
+        <div id="gc-pnr" class="card" style="border-left:4px solid var(--accent);transition:all .4s;">
+          <strong style="font-size:.85rem;display:block;margin-bottom:.3rem;">&#128196; PNR Structure</strong>
+          <span style="font-size:.8rem;color:var(--text-muted);">PRINT mnemonic &mdash; Phone, Received, Itinerary, Name, Ticketing. Missing any one = orphan record.</span>
+        </div>
+        <div id="gc-ssr" class="card" style="border-left:4px solid var(--purple);transition:all .4s;">
+          <strong style="font-size:.85rem;display:block;margin-bottom:.3rem;">&#9992; SSR / OSI Codes</strong>
+          <span style="font-size:.8rem;color:var(--text-muted);">WCHR (wheelchair ramp) vs WCBD (battery-dry cell). Critical for airline cargo hold regulations.</span>
+        </div>
+        <div id="gc-cmd" class="card" style="border-left:4px solid var(--green);transition:all .4s;">
+          <strong style="font-size:.85rem;display:block;margin-bottom:.3rem;">&#128187; Cryptic Commands</strong>
+          <span style="font-size:.8rem;color:var(--text-muted);">Amadeus/Sabre shorthand. E.g. <code>RT JSMITH/JOHN</code> &rarr; Retrieve booking for John Smith.</span>
+        </div>
+        <div id="gc-reg" class="card" style="border-left:4px solid var(--orange);transition:all .4s;">
+          <strong style="font-size:.85rem;display:block;margin-bottom:.3rem;">&#128218; Regulatory</strong>
+          <span style="font-size:.8rem;color:var(--text-muted);">DOT Part 382 wheelchair passenger rights. Profile-to-PNR sync failure patterns.</span>
+        </div>
+      </div>
+      <div style="margin-top:.75rem;font-size:.8rem;color:var(--text-muted);text-align:center;">Each example targets a specific persona (junior agent, data engineer, traveller) &mdash; teaching the model to adapt explanation depth.</div>
+    </div>
+
+    <div class="callout callout-green">
+      <strong>Why so few examples?</strong>
+      LoRA fine-tuning is sample-efficient because the base model (trained on 2T tokens) already knows how to write and reason. You're teaching it a narrow style and vocabulary, not learning from scratch. Even 10&ndash;50 high-quality examples can meaningfully shift domain performance.
+    </div>
+  </section>
+
+  <!-- ── Section 4 ─────────────────────────────── -->
+  <section id="sec4">
+    <h2>4. Load Base Model + Apply LoRA Adapters</h2>
+
+    <h3>Gemma-2-2b Architecture</h3>
+    <p>Gemma 2 is Google's open-weight model family. The 2B variant has 26 transformer blocks, 2048 hidden dim, 8 KV heads (GQA), trained on 2T tokens. It fits in ~6 GB VRAM in FP16.</p>
+
+    <pre><code>from transformers import AutoModelForCausalLM, AutoTokenizer
+from peft import LoraConfig, get_peft_model
+
+model_name = "google/gemma-2-2b"
+
+# 1. Load Tokenizer
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+tokenizer.pad_token = tokenizer.eos_token
+tokenizer.padding_side = "right"
+
+# 2. Load base model in FP16
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    device_map="auto",
+    torch_dtype=torch.float16,
+)
+
+# 3. Apply LoRA adapters
+lora_config = LoraConfig(
+    r=16,
+    lora_alpha=32,
+    lora_dropout=0.05,
+    target_modules=["q_proj","k_proj","v_proj","o_proj",
+                    "gate_proj","up_proj","down_proj"],
+    task_type="CAUSAL_LM",
+)
+model = get_peft_model(model, lora_config)
+model.print_trainable_parameters()
+# trainable params: 13,107,200 || all params: 2,627,198,976 || trainable%: 0.4990</code></pre>
+
+    <h3>LoRA Target Modules</h3>
+    <p>We apply adapters to all 7 projection matrices per block. Targeting all 7 (not just Q/V) recovers more performance for domain-specific tasks because the FFN and output projections also need domain adaptation.</p>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Module</th><th>Role</th><th>Why LoRA it?</th></tr>
+        <tr><td><code>q_proj</code>, <code>k_proj</code>, <code>v_proj</code></td><td>Query, Key, Value attention</td><td>Controls what information is attended to</td></tr>
+        <tr><td><code>o_proj</code></td><td>Output after attention</td><td>Projects attended values back to hidden dim</td></tr>
+        <tr><td><code>gate_proj</code>, <code>up_proj</code>, <code>down_proj</code></td><td>SwiGLU feed-forward</td><td>Stores domain-specific facts and style</td></tr>
+      </table>
+    </div>
+
+    <h3>Key LoRA Hyperparameters</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Parameter</th><th>Value</th><th>Meaning</th></tr>
+        <tr><td><code>r</code></td><td>16</td><td>Rank of the low-rank matrices &mdash; higher = more expressivity, more parameters</td></tr>
+        <tr><td><code>lora_alpha</code></td><td>32</td><td>Scaling factor: effective scale = alpha/r = 2&times;</td></tr>
+        <tr><td><code>lora_dropout</code></td><td>0.05</td><td>Light regularisation on adapter weights only</td></tr>
+      </table>
+    </div>
+
+    <div class="callout callout-blue">
+      <strong>Why can we use a high LR with LoRA?</strong>
+      The adapter matrices start at zero effective perturbation (B is zeroed, A is random Gaussian). The frozen base model is never destabilised &mdash; only the small adapters move. This stability allows LRs of 2e-4, much higher than the 1e-5 typical for full fine-tuning.
+    </div>
+
+    <!-- LoRA rank slider diagram -->
+    <div class="diagram-container">
+      <div class="diagram-title">LoRA Rank vs. Parameter Count</div>
+      <p style="font-size:.85rem;margin-bottom:1rem;">Drag the rank slider to see how trainable parameter count scales. Lower rank = fewer parameters, faster training, higher risk of underfitting.</p>
+      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;">
+        <label style="font-size:.85rem;font-weight:600;">Rank r:</label>
+        <input type="range" id="rankSlider" min="4" max="64" value="16" step="4" style="flex:1;" oninput="updateRankViz()">
+        <span id="rankValue" style="font-weight:700;min-width:30px;">16</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="card" style="text-align:center;">
+          <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:.3rem;">Trainable Parameters</div>
+          <div id="rankParams" style="font-size:1.5rem;font-weight:800;color:var(--purple);">13.1 M</div>
+          <div style="font-size:.75rem;color:var(--text-muted);">out of 2,627 M total</div>
+        </div>
+        <div class="card" style="text-align:center;">
+          <div style="font-size:.8rem;color:var(--text-muted);margin-bottom:.3rem;">% Trainable</div>
+          <div id="rankPct" style="font-size:1.5rem;font-weight:800;color:var(--accent);">0.499%</div>
+          <div style="font-size:.75rem;color:var(--text-muted);">base frozen weights</div>
+        </div>
+      </div>
+      <div style="margin-top:1rem;height:12px;background:#f1f5f9;border-radius:6px;overflow:hidden;">
+        <div id="rankBar" style="height:100%;width:0.499%;background:linear-gradient(90deg,var(--purple),var(--accent));border-radius:6px;transition:width .4s;"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Section 5 ─────────────────────────────── -->
+  <section id="sec5">
+    <h2>5. Tokenize the Dataset</h2>
+    <p>The tokenizer converts the Alpaca-format text strings into integer token ID sequences that the model can process. The key design choices here are memory-driven.</p>
+
+    <pre><code>def tokenize(batch):
+    return tokenizer(
+        batch["text"],
+        padding=False,        # Pad dynamically per batch, not globally
+        truncation=True,
+        max_length=1024,      # Cap to fit in GPU memory
+    )
+
+tokenized_ds = train_ds.map(tokenize, batched=True, remove_columns=train_ds.column_names)
+
+# Labels = input_ids (causal LM: predict next token at every position)
+tokenized_ds = tokenized_ds.map(
+    lambda x: {"labels": x["input_ids"]},
+    batched=True
+)</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Choice</th><th>Reasoning</th></tr>
+        <tr><td><code>padding=False</code></td><td>Padding is deferred to the <code>DataCollatorForSeq2Seq</code> inside <code>Trainer</code>, which pads to the longest sequence in each batch (not globally). This saves significant VRAM because most batches are shorter than the max.</td></tr>
+        <tr><td><code>truncation=True, max_length=1024</code></td><td>Gemma-2-2b has a 8192-token context window, but long sequences don't fit with batch_size=1 + FP16 + optimizer state. 1024 is the sweet spot for T4 VRAM.</td></tr>
+        <tr><td><code>labels = input_ids</code></td><td>For causal language modelling, the loss is computed over every position &mdash; the model predicts token[i+1] from token[0..i]. The <code>Trainer</code> handles the +1 shift internally.</td></tr>
+      </table>
+    </div>
+
+    <div class="callout callout-green">
+      <strong>Causal LM Training Signal</strong>
+      Unlike masked LM (BERT), causal models learn from every token in the sequence. Given the training text <em>"### Response:\nThink of a PNR as..."</em>, the model learns both the format tokens (<code>###</code>, <code>Response</code>) and the actual answer content simultaneously.
+    </div>
+  </section>
+
+  <!-- ── Section 6 ─────────────────────────────── -->
+  <section id="sec6">
+    <h2>6. Training</h2>
+    <p>HuggingFace <code>Trainer</code> abstracts the full training loop: forward pass, backward pass, gradient accumulation, optimizer step, and mixed-precision scaling. All hyperparameters are declared in <code>TrainingArguments</code>.</p>
+
+    <pre><code>from transformers import TrainingArguments, Trainer
+
+training_args = TrainingArguments(
+    output_dir="./finetune_out",
+    per_device_train_batch_size=1,   # 2B model in FP16 leaves little VRAM headroom
+    gradient_accumulation_steps=4,   # Effective batch size = 1 * 4 = 4
+    warmup_steps=10,
+    max_steps=100,                   # ~5 min on T4; use 500+ for production quality
+    learning_rate=2e-4,
+    fp16=True,                       # Mixed precision
+    optim="adamw_torch_fused",       # Fused CUDA kernel ~20% faster than standard AdamW
+    logging_steps=10,
+    report_to="none",
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_ds,
+    processing_class=tokenizer,
+)
+trainer.train()</code></pre>
+
+    <h3>Hyperparameter Table</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Setting</th><th>Value</th><th>Why</th></tr>
+        <tr><td><code>per_device_train_batch_size</code></td><td>1</td><td>2B model in FP16 leaves little VRAM headroom for larger batches</td></tr>
+        <tr><td><code>gradient_accumulation_steps</code></td><td>4</td><td>Accumulates 4 micro-batches &rarr; effective batch size 4 without extra VRAM</td></tr>
+        <tr><td><code>max_steps</code></td><td>100</td><td>~5 min on T4; use 500+ for production quality</td></tr>
+        <tr><td><code>learning_rate</code></td><td>2e-4</td><td>Standard for LoRA; higher than full fine-tuning LRs (base model is frozen)</td></tr>
+        <tr><td><code>fp16</code></td><td>True</td><td>Mixed precision &mdash; faster matmuls, less memory</td></tr>
+        <tr><td><code>optim</code></td><td>adamw_torch_fused</td><td>Fused CUDA kernel ~20% faster than standard AdamW</td></tr>
+      </table>
+    </div>
+
+    <!-- LR schedule diagram -->
+    <div class="diagram-container">
+      <div class="diagram-title">Learning Rate Schedule (warmup + constant)</div>
+      <canvas id="lrCanvas" height="160"></canvas>
+      <div style="display:flex;gap:1.5rem;margin-top:.75rem;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;">
+          <span style="width:20px;height:3px;background:#f59e0b;display:inline-block;border-radius:2px;"></span> Warmup (steps 0-10)
+        </div>
+        <div style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;">
+          <span style="width:20px;height:3px;background:var(--accent);display:inline-block;border-radius:2px;"></span> Constant LR (steps 10-100)
+        </div>
+      </div>
+    </div>
+
+    <h3>Gradient Accumulation</h3>
+    <p>With <code>gradient_accumulation_steps=4</code>, the optimizer step only fires every 4 forward+backward passes. Intermediate gradients are accumulated (summed) without zeroing. This simulates a larger batch size without allocating the extra activations &mdash; the VRAM cost is identical to a batch size of 1.</p>
+
+    <div class="callout callout-amber">
+      <strong>adamw_torch_fused vs standard AdamW</strong>
+      The fused kernel combines the parameter update, momentum update, and weight decay into a single CUDA kernel launch instead of three separate ones. This reduces kernel launch overhead and memory round-trips by ~20%. For LoRA with only 13M trainable parameters, the speedup is modest but free.
+    </div>
+  </section>
+
+  <!-- ── Section 7 ─────────────────────────────── -->
+  <section id="sec7">
+    <h2>7. Save Adapters &amp; Test Inference</h2>
+    <p><code>model.save_pretrained()</code> saves only the LoRA adapter weights and config &mdash; roughly 50&ndash;100 MB &mdash; not the 6 GB base model. Anyone with the base model can reconstruct the fine-tuned variant by loading the adapter on top.</p>
+
+    <pre><code># 1. Save adapters only (~50-100 MB, not the 6 GB base)
+model.save_pretrained("./my_custom_model")
+tokenizer.save_pretrained("./my_custom_model")
+
+# 2. Complex multi-persona inference test
+scenario_instruction = """Explain the situation below to a Junior Agent and a Data Engineer.
+Context: A traveler with a motorized wheelchair (WCBD - dry cell) is flying US to Japan.
+The airline's DCS is rejecting the PNR because the SSR code was entered as WCHR instead
+of WCBD.
+Please cover:
+1. The Technical mismatch between WCHR and WCBD.
+2. The Regulatory aspect citing DOT Part 382.
+3. The Data challenge of why the Profile-to-PNR sync failed."""
+
+prompt = f"### Instruction:\n{scenario_instruction}\n\n### Response:\n"
+inp = tokenizer(prompt, return_tensors="pt").to("cuda")
+
+out = model.generate(
+    **inp,
+    max_new_tokens=512,
+    temperature=0.7,
+    do_sample=True,
+    repetition_penalty=1.15,
+    eos_token_id=tokenizer.eos_token_id,
+    pad_token_id=tokenizer.pad_token_id,
+)
+decoded = tokenizer.decode(out[0], skip_special_tokens=True)
+response = decoded.split("### Response:\n")[-1].strip()
+print(response)</code></pre>
+
+    <div class="callout callout-purple">
+      <strong>Why this specific test scenario?</strong>
+      The scenario deliberately crosses three training domains simultaneously &mdash; SSR code mismatch (technical), DOT Part 382 (regulatory), and Profile-to-PNR sync failure (data engineering). A model that only memorised individual examples would fail; a model that generalised can synthesise an answer that bridges all three.
+    </div>
+
+    <div class="card">
+      <h3>Inference Parameters Explained</h3>
+      <div class="table-wrap">
+        <table>
+          <tr><th>Parameter</th><th>Value</th><th>Effect</th></tr>
+          <tr><td><code>temperature=0.7</code></td><td>&mdash;</td><td>Adds creativity while staying professional. 1.0 = random; 0.0 = greedy.</td></tr>
+          <tr><td><code>do_sample=True</code></td><td>&mdash;</td><td>Enables stochastic sampling (temperature only works if sampling is on)</td></tr>
+          <tr><td><code>repetition_penalty=1.15</code></td><td>&mdash;</td><td>Penalises already-generated tokens &mdash; stops "### Response: ### Response:" looping</td></tr>
+          <tr><td><code>max_new_tokens=512</code></td><td>&mdash;</td><td>Sweet spot: enough for a detailed multi-part answer, not so long it wanders</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Section 8 ─────────────────────────────── -->
+  <section id="sec8">
+    <h2>8. Inspect the Adapter Config</h2>
+    <p><code>adapter_config.json</code> records every LoRA hyperparameter and the exact modules modified. PEFT reads this file when you call <code>PeftModel.from_pretrained()</code> to reload the adapter on a fresh base model &mdash; you never need to re-specify the config manually.</p>
+
+    <pre><code>with open('./my_custom_model/adapter_config.json', 'r') as f:
+    print(f.read())</code></pre>
+
+    <div class="card">
+      <div class="diagram-title" style="margin-bottom:.75rem;">Example adapter_config.json</div>
+      <pre style="margin:0;font-size:.78rem;">{
+  "base_model_name_or_path": "google/gemma-2-2b",
+  "bias": "none",
+  "fan_in_fan_out": false,
+  "inference_mode": true,
+  "init_lora_weights": true,
+  "lora_alpha": 32,
+  "lora_dropout": 0.05,
+  "modules_to_save": null,
+  "peft_type": "LORA",
+  "r": 16,
+  "revision": null,
+  "target_modules": [
+    "q_proj","k_proj","v_proj","o_proj",
+    "gate_proj","up_proj","down_proj"
+  ],
+  "task_type": "CAUSAL_LM"
+}</pre>
+    </div>
+
+    <div class="callout callout-blue">
+      <strong>Reloading an adapter from Kaggle/HuggingFace</strong>
+      <code>PeftModel.from_pretrained(base_model, "username/adapter-repo")</code> downloads this config, instantiates the correct LoRA structure on the base model, and loads the saved weights. The adapter is ~50 MB; the base model is still 6 GB but only downloaded once per environment.
+    </div>
+  </section>
+
+  <!-- ── Section 9 ─────────────────────────────── -->
+  <section id="sec9">
+    <h2>9. Upload to Kaggle Model Registry</h2>
+    <p><code>kagglehub.model_upload()</code> packages and registers the adapter directory as a versioned artifact. The handle format is <code>&lt;username&gt;/&lt;model-slug&gt;/&lt;framework&gt;/&lt;variation&gt;</code>.</p>
+
+    <pre><code>import kagglehub
+
+local_path = "./my_custom_model"
+
+kagglehub.model_upload(
+    "kush5618/gemma-2b-travel-expert/transformers/v1",
+    local_path
+)</code></pre>
+
+    <div class="card">
+      <h3>Handle Format Breakdown</h3>
+      <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;font-family:monospace;font-size:.9rem;padding:.5rem;background:#f8fafc;border-radius:8px;">
+        <span style="background:#dbeafe;color:#1d4ed8;padding:.2rem .5rem;border-radius:4px;">kush5618</span>
+        <span style="color:var(--text-muted);">/</span>
+        <span style="background:#ede9fe;color:#4c1d95;padding:.2rem .5rem;border-radius:4px;">gemma-2b-travel-expert</span>
+        <span style="color:var(--text-muted);">/</span>
+        <span style="background:#d1fae5;color:#065f46;padding:.2rem .5rem;border-radius:4px;">transformers</span>
+        <span style="color:var(--text-muted);">/</span>
+        <span style="background:#fef3c7;color:#92400e;padding:.2rem .5rem;border-radius:4px;">v1</span>
+      </div>
+      <p style="font-size:.8rem;margin-top:.75rem;color:var(--text-muted);">Any Kaggle notebook can download with <code>kagglehub.model_download("kush5618/gemma-2b-travel-expert/transformers/v1")</code> and apply it to the base model without re-training.</p>
+    </div>
+  </section>
+
+  <!-- ── Section 10 ─────────────────────────────── -->
+  <section id="sec10">
+    <h2>10. Merge Adapters into Base Model</h2>
+    <p><code>merge_and_unload()</code> fuses the adapter matrices back into the base weights permanently. This is a prerequisite for GGUF export because llama.cpp's conversion script expects a plain HuggingFace model directory &mdash; it doesn't understand PEFT adapter files.</p>
+
+    <pre><code># Fuse adapters into base weights (irreversible)
+merged_model = model.merge_and_unload()
+merged_model.save_pretrained("./merged_model_for_ollama")</code></pre>
+
+    <!-- Merge animation -->
+    <div class="diagram-container">
+      <div class="diagram-title">Merge Operation: W<sub>adapted</sub> = W<sub>0</sub> + B &middot; A</div>
+      <div id="mergeViz" style="display:flex;align-items:center;justify-content:center;gap:1.5rem;flex-wrap:wrap;padding:1rem;">
+        <div style="text-align:center;">
+          <div style="width:80px;height:80px;background:#cbd5e1;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.2rem;" id="merge-w0">W<sub>0</sub></div>
+          <div style="font-size:.75rem;color:var(--text-muted);margin-top:.3rem;">Base (frozen)</div>
+        </div>
+        <div style="font-size:2rem;font-weight:700;color:var(--text-muted);">+</div>
+        <div style="text-align:center;">
+          <div style="display:flex;align-items:center;gap:.3rem;" id="merge-ba">
+            <div style="width:30px;height:80px;background:#ede9fe;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;color:var(--purple);">B</div>
+            <span style="font-size:1.2rem;font-weight:700;color:var(--text-muted);">&middot;</span>
+            <div style="width:80px;height:30px;background:#ede9fe;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;color:var(--purple);">A</div>
+          </div>
+          <div style="font-size:.75rem;color:var(--text-muted);margin-top:.3rem;">Adapters (trainable)</div>
+        </div>
+        <div style="font-size:2rem;font-weight:700;color:var(--text-muted);">=</div>
+        <div style="text-align:center;">
+          <div style="width:80px;height:80px;background:#dbeafe;border:2px solid var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;color:var(--accent-dark);opacity:0;transition:opacity .8s;" id="merge-result">W<sub>merged</sub></div>
+          <div style="font-size:.75rem;color:var(--text-muted);margin-top:.3rem;">Merged (standalone)</div>
+        </div>
+      </div>
+      <button onclick="animateMerge()" style="display:block;margin:.5rem auto 0;padding:.4rem 1rem;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Animate Merge</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th></th><th>Before merge (PEFT)</th><th>After merge_and_unload()</th></tr>
+        <tr><td>Files on disk</td><td>adapter_model.safetensors + adapter_config.json (~50 MB)</td><td>Full model weights (~5 GB)</td></tr>
+        <tr><td>Loadable as</td><td>PeftModel.from_pretrained(base, adapter_path)</td><td>AutoModelForCausalLM.from_pretrained(path)</td></tr>
+        <tr><td>Swap adapters?</td><td>Yes &mdash; any adapter can be loaded on any copy of the base</td><td>No &mdash; adapters permanently fused</td></tr>
+        <tr><td>GGUF convertible?</td><td>No &mdash; convert_hf_to_gguf.py doesn't understand PEFT format</td><td>Yes</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── Section 11 ─────────────────────────────── -->
+  <section id="sec11">
+    <h2>11. Export to GGUF (llama.cpp Format)</h2>
+    <p><strong>GGUF</strong> is the binary format used by llama.cpp, Ollama, LM Studio, and most local inference runtimes. It bundles the model weights, tokenizer, and all metadata into a single file.</p>
+
+    <!-- GGUF pipeline animation -->
+    <div class="diagram-container">
+      <div class="diagram-title">GGUF Export Pipeline</div>
+      <div id="ggufPipeline" style="display:flex;flex-direction:column;gap:.75rem;padding:.5rem;">
+        <div id="gp-hf" class="pipeline-step" style="text-align:left;padding:.75rem 1rem;">
+          <strong>Merged HuggingFace model</strong> (PyTorch .safetensors, ~5 GB)
+        </div>
+        <div style="text-align:center;font-size:1.5rem;color:var(--text-muted);">&#8595;</div>
+        <div id="gp-convert" class="pipeline-step" style="text-align:left;padding:.75rem 1rem;border-left:4px solid var(--accent);">
+          <code>convert_hf_to_gguf.py</code> from llama.cpp<br>
+          <span style="font-size:.78rem;color:var(--text-muted);">Tokenizer patch: download tokenizer.model separately (gated Gemma asset)</span>
+        </div>
+        <div style="text-align:center;font-size:1.5rem;color:var(--text-muted);">&#8595;</div>
+        <div id="gp-fp16" class="pipeline-step" style="text-align:left;padding:.75rem 1rem;">
+          <strong>travel_expert_fp16.gguf</strong> (~5 GB FP16)
+        </div>
+        <div style="text-align:center;font-size:1.5rem;color:var(--text-muted);">&#8595;</div>
+        <div id="gp-quant" class="pipeline-step" style="text-align:left;padding:.75rem 1rem;border-left:4px solid var(--green);">
+          <code>llama-quantize travel_expert_fp16.gguf travel_expert_q4.gguf q4_k_m</code>
+        </div>
+        <div style="text-align:center;font-size:1.5rem;color:var(--text-muted);">&#8595;</div>
+        <div id="gp-final" class="pipeline-step" style="text-align:left;padding:.75rem 1rem;background:#d1fae5;border:1.5px solid var(--green);">
+          <strong>travel_expert_q4.gguf</strong> (~1.6 GB Q4_K_M) &larr; What you download and run
+        </div>
+      </div>
+      <button onclick="animateGGUF()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--green);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Animate Pipeline</button>
+    </div>
+
+    <pre><code># Clone llama.cpp and install Python dependencies
+!git clone https://github.com/ggerganov/llama.cpp
+!pip install -r llama.cpp/requirements.txt
+
+# Tokenizer patch: Gemma's tokenizer.model is gated, not saved by save_pretrained()
+from huggingface_hub import hf_hub_download
+tokenizer_path = hf_hub_download(
+    repo_id="google/gemma-2-2b",
+    filename="tokenizer.model",
+    token=HF_TOKEN,
+    local_dir="./merged_model_for_ollama"
+)
+
+# Convert merged HF model to GGUF FP16
+!python llama.cpp/convert_hf_to_gguf.py ./merged_model_for_ollama \
+    --outfile travel_expert_fp16.gguf \
+    --outtype f16</code></pre>
+
+    <div class="callout callout-amber">
+      <strong>Tokenizer Patch</strong>
+      Gemma's <code>tokenizer.model</code> (the SentencePiece vocabulary) is a gated asset on HuggingFace. <code>save_pretrained()</code> only saves the tokenizer config JSON, not the binary model file. The conversion script needs the binary. Fix: download it explicitly with an authenticated HF token and place it alongside the merged model weights.
+    </div>
+  </section>
+
+  <!-- ── Section 12 ─────────────────────────────── -->
+  <section id="sec12">
+    <h2>12. Quantise to Q4_K_M</h2>
+    <p>Quantisation maps FP16 weights (2 bytes each) to 4-bit integers (0.5 bytes), reducing model size by ~4&times; with modest quality loss. <strong>K-Quant</strong> uses k-means clustering per block &mdash; centroids are chosen to minimise reconstruction error, giving better quality than naive INT4.</p>
+
+    <pre><code># Build llama-quantize
+!cd llama.cpp/build && cmake --build . --config Release --target llama-quantize
+
+# Quantize FP16 to Q4_K_M
+!./llama.cpp/build/bin/llama-quantize \
+    travel_expert_fp16.gguf \
+    travel_expert_q4.gguf \
+    q4_k_m</code></pre>
+
+    <!-- Quantization comparison chart -->
+    <div class="diagram-container">
+      <div class="diagram-title">Quantization Formats: Size vs Quality Trade-off</div>
+      <div class="quant-bars" id="quantBars">
+        <div class="quant-bar-row">
+          <div class="quant-bar-label">FP16</div>
+          <div class="quant-bar-track">
+            <div class="quant-bar-fill" id="qbar-fp16" style="width:0%;background:#64748b;">~5.0 GB | baseline PPL</div>
+          </div>
+        </div>
+        <div class="quant-bar-row">
+          <div class="quant-bar-label">Q8_0</div>
+          <div class="quant-bar-track">
+            <div class="quant-bar-fill" id="qbar-q8" style="width:0%;background:#3b82f6;">~2.7 GB | PPL +0.05</div>
+          </div>
+        </div>
+        <div class="quant-bar-row">
+          <div class="quant-bar-label" style="color:var(--green);font-weight:800;">Q4_K_M &#9733;</div>
+          <div class="quant-bar-track">
+            <div class="quant-bar-fill" id="qbar-q4km" style="width:0%;background:var(--green);">~1.6 GB | PPL +0.3</div>
+          </div>
+        </div>
+        <div class="quant-bar-row">
+          <div class="quant-bar-label">Q3_K_S</div>
+          <div class="quant-bar-track">
+            <div class="quant-bar-fill" id="qbar-q3" style="width:0%;background:#f59e0b;">~1.2 GB | PPL +0.7</div>
+          </div>
+        </div>
+      </div>
+      <button onclick="animateQuantBars()" style="margin-top:1rem;padding:.4rem 1rem;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Show Comparison</button>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-top:.75rem;">PPL = perplexity increase vs FP16. Lower = better. Q4_K_M is the sweet spot for most laptops and Ollama deployments.</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Format</th><th>Size</th><th>PPL vs FP16</th><th>Use case</th></tr>
+        <tr><td>FP16</td><td>~5 GB</td><td>baseline</td><td>Cloud inference / GPU servers</td></tr>
+        <tr><td>Q8_0</td><td>~2.7 GB</td><td>+0.05</td><td>High-VRAM laptops (RTX 3080+)</td></tr>
+        <tr><td><strong>Q4_K_M</strong></td><td><strong>~1.6 GB</strong></td><td><strong>+0.3</strong></td><td><strong>Most laptops / Ollama (recommended)</strong></td></tr>
+        <tr><td>Q3_K_S</td><td>~1.2 GB</td><td>+0.7</td><td>Memory-constrained / older hardware</td></tr>
+      </table>
+    </div>
+
+    <div class="callout callout-green">
+      <strong>K-Quant vs Naive INT4</strong>
+      Standard INT4 maps each weight to the nearest 4-bit integer on a fixed uniform grid. K-Quant groups weights into blocks, runs k-means to find the 16 best representative values (centroids), and assigns each weight the nearest centroid. This non-uniform grid dramatically reduces reconstruction error at the same bit width.
+    </div>
+  </section>
+
+  <!-- ── Section 13 ─────────────────────────────── -->
+  <section id="sec13">
+    <h2>13. Download &amp; Deploy</h2>
+    <p>The final 1.6 GB GGUF file can be downloaded from Kaggle and run locally with Ollama or llama.cpp directly &mdash; no Python, no CUDA required for CPU inference.</p>
+
+    <pre><code>import os
+from IPython.display import FileLink
+
+if os.path.exists("travel_expert_q4.gguf"):
+    display(FileLink("travel_expert_q4.gguf"))
+else:
+    !find /kaggle/working -name "travel_expert_q4.gguf"
+
+# Cleanup: remove the large unquantized file
+!rm travel_expert_fp16.gguf</code></pre>
+
+    <h3>Run with Ollama</h3>
+    <pre><code># Create a Modelfile
+echo "FROM ./travel_expert_q4.gguf" > Modelfile
+ollama create travel-expert -f Modelfile
+ollama run travel-expert "Explain PNR structure to a junior agent."</code></pre>
+
+    <h3>Run with llama.cpp directly</h3>
+    <pre><code>./llama.cpp/build/bin/llama-cli \
+    -m travel_expert_q4.gguf \
+    -p "### Instruction:\nExplain PNR structure\n\n### Response:\n" \
+    -n 200</code></pre>
+
+    <div class="callout callout-blue">
+      <strong>CPU Inference Performance</strong>
+      A 2B model in Q4_K_M fits comfortably in 4 GB RAM and runs at ~30 tok/s on a modern laptop CPU (M1/M2 Mac or recent Intel/AMD). On a GPU, throughput scales linearly with VRAM bandwidth &mdash; an RTX 3080 delivers ~100+ tok/s.
+    </div>
+  </section>
+
+  <!-- ── Summary ────────────────────────────────── -->
+  <section id="summary">
+    <h2>&#10003; Day 3 Summary</h2>
+    <p>You built a complete fine-tuning and deployment pipeline for a domain-expert LLM &mdash; from raw training data to a quantised model running on your laptop.</p>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Step</th><th>Output</th><th>Size</th></tr>
+        <tr><td>Travel Q&amp;A dataset</td><td>Alpaca-format instruction pairs (GDS domain)</td><td>&lt;1 MB</td></tr>
+        <tr><td>LoRA fine-tuning</td><td>Adapter weights (r=16, 7 modules, ~13M params)</td><td>~50 MB</td></tr>
+        <tr><td>Kaggle registry</td><td>Versioned adapter artifact (<code>kush5618/gemma-2b-travel-expert</code>)</td><td>~50 MB</td></tr>
+        <tr><td>Merge adapters</td><td>Standalone HuggingFace model (PyTorch)</td><td>~5 GB</td></tr>
+        <tr><td>GGUF export</td><td>travel_expert_fp16.gguf</td><td>~5 GB</td></tr>
+        <tr><td>Q4_K_M quantisation</td><td>travel_expert_q4.gguf</td><td>~1.6 GB</td></tr>
+        <tr><td>Local deployment</td><td>Ollama / llama.cpp</td><td>runs at ~30 tok/s CPU</td></tr>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:1.5rem;">
+      <h3>Key Concepts Mastered</h3>
+      <ul style="margin-left:1rem;">
+        <li><strong>LoRA math</strong>: W<sub>adapted</sub> = W<sub>0</sub> + B&middot;A, rank r=16, only 0.5% of parameters trained</li>
+        <li><strong>Alpaca format</strong>: Instruction/Response template for instruct-tuning</li>
+        <li><strong>PEFT workflow</strong>: <code>LoraConfig</code> &rarr; <code>get_peft_model</code> &rarr; <code>Trainer</code> &rarr; <code>save_pretrained</code></li>
+        <li><strong>Gradient accumulation</strong>: Simulate larger batch sizes without extra VRAM</li>
+        <li><strong>merge_and_unload()</strong>: Fuses adapters permanently; prerequisite for GGUF</li>
+        <li><strong>GGUF pipeline</strong>: HF model &rarr; convert_hf_to_gguf.py &rarr; llama-quantize &rarr; local run</li>
+        <li><strong>K-Quant</strong>: Non-uniform 4-bit quantisation using k-means centroids per block</li>
+      </ul>
+    </div>
+
+    <div class="callout callout-green">
+      <strong>What's next?</strong>
+      Day 4 will cover inference optimisation &mdash; KV-cache, batching strategies, and production serving patterns. The quantised model you built today is the input to those experiments.
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ── Sidebar toggle ────────────────────────────────
+const sidebar = document.getElementById('sidebar');
+const toggle  = document.getElementById('sidebarToggle');
+const STORE_KEY = 'sidebar-collapsed-day3';
+
+function initSidebar() {
+  if (localStorage.getItem(STORE_KEY) === 'true') {
+    sidebar.classList.add('collapsed');
+  }
+}
+
+toggle.addEventListener('click', () => {
+  sidebar.classList.toggle('collapsed');
+  localStorage.setItem(STORE_KEY, sidebar.classList.contains('collapsed'));
+});
+
+initSidebar();
+
+// ── Scrollspy ─────────────────────────────────────
+const sidebarLinks = document.querySelectorAll('.sidebar a[href^="#"]');
+const sections     = document.querySelectorAll('section[id]');
+
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      sidebarLinks.forEach(l => l.classList.remove('active'));
+      const link = document.querySelector(`.sidebar a[href="#${entry.target.id}"]`);
+      if (link) link.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+
+sections.forEach(s => observer.observe(s));
+
+// ── Main pipeline step-through ────────────────────
+const pipelineSteps = ['ps-data','ps-tokenize','ps-lora','ps-adapters','ps-merge','ps-gguf','ps-quant','ps-ollama'];
+let currentStep = -1;
+
+function stepPipeline() {
+  // Clear all
+  pipelineSteps.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+
+  currentStep = (currentStep + 1) % (pipelineSteps.length + 1);
+
+  if (currentStep < pipelineSteps.length) {
+    // Highlight up to currentStep
+    for (let i = 0; i <= currentStep; i++) {
+      const el = document.getElementById(pipelineSteps[i]);
+      if (el) el.classList.add('active');
+    }
+  }
+  // If we've gone past the end, reset (next click starts over)
+  if (currentStep >= pipelineSteps.length) {
+    currentStep = -1;
+  }
+}
+
+// ── LoRA matrix visualization ──────────────────────
+function buildMatrix(containerId, rows, cols, cellClass) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  container.style.gridTemplateColumns = `repeat(${cols}, 14px)`;
+  for (let i = 0; i < rows * cols; i++) {
+    const cell = document.createElement('div');
+    cell.classList.add('matrix-cell', cellClass);
+    cell.dataset.index = i;
+    container.appendChild(cell);
+  }
+}
+
+function animateLoRA() {
+  buildMatrix('w0-matrix', 8, 12, 'frozen');
+  buildMatrix('b-matrix',  8,  3, 'trainable');
+  buildMatrix('a-matrix',  3, 12, 'trainable');
+
+  // Animate B and A cells lighting up sequentially
+  const bCells = document.querySelectorAll('#b-matrix .matrix-cell');
+  const aCells = document.querySelectorAll('#a-matrix .matrix-cell');
+  const allTrainable = [...bCells, ...aCells];
+
+  allTrainable.forEach((cell, i) => {
+    cell.classList.remove('active');
+  });
+
+  let idx = 0;
+  const interval = setInterval(() => {
+    if (idx < allTrainable.length) {
+      allTrainable[idx].classList.add('active');
+      idx++;
+    } else {
+      clearInterval(interval);
+    }
+  }, 30);
+}
+
+// Initialize matrices on page load
+window.addEventListener('DOMContentLoaded', () => {
+  buildMatrix('w0-matrix', 8, 12, 'frozen');
+  buildMatrix('b-matrix',  8,  3, 'trainable');
+  buildMatrix('a-matrix',  3, 12, 'trainable');
+});
+
+// ── Rank slider ───────────────────────────────────
+function updateRankViz() {
+  const slider = document.getElementById('rankSlider');
+  const r = parseInt(slider.value);
+  document.getElementById('rankValue').textContent = r;
+
+  // Gemma-2-2b: 7 modules, each approx d=2048, k=2048
+  // trainable = 7 * (d*r + r*k) = 7 * 2 * 2048 * r
+  const trainable = 7 * 2 * 2048 * r;
+  const total = 2627198976;
+  const pct = (trainable / total * 100).toFixed(3);
+
+  document.getElementById('rankParams').textContent = (trainable / 1e6).toFixed(1) + ' M';
+  document.getElementById('rankPct').textContent = pct + '%';
+  document.getElementById('rankBar').style.width = Math.min(pct * 50, 100) + '%';
+}
+
+// ── LR Schedule canvas ────────────────────────────
+function drawLRCurve() {
+  const canvas = document.getElementById('lrCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 600;
+  const H = 160;
+  canvas.width = W;
+  canvas.height = H;
+
+  const totalSteps = 100;
+  const warmupSteps = 10;
+  const maxLR = 2e-4;
+  const pad = { l: 50, r: 20, t: 20, b: 30 };
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(0, 0, W, H);
+
+  // Axes
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, H - pad.b);
+  ctx.lineTo(W - pad.r, H - pad.b);
+  ctx.stroke();
+
+  // Y axis labels
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('2e-4', pad.l - 5, pad.t + 5);
+  ctx.fillText('0', pad.l - 5, H - pad.b + 4);
+
+  // X axis labels
+  ctx.textAlign = 'center';
+  ctx.fillText('0', pad.l, H - pad.b + 15);
+  ctx.fillText('10', pad.l + (10 / totalSteps) * (W - pad.l - pad.r), H - pad.b + 15);
+  ctx.fillText('100', W - pad.r, H - pad.b + 15);
+
+  function stepToX(step) {
+    return pad.l + (step / totalSteps) * (W - pad.l - pad.r);
+  }
+  function lrToY(lr) {
+    return pad.t + (1 - lr / maxLR) * (H - pad.t - pad.b);
+  }
+
+  // Draw warmup (yellow)
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for (let step = 0; step <= warmupSteps; step++) {
+    const lr = maxLR * (step / warmupSteps);
+    const x = stepToX(step);
+    const y = lrToY(lr);
+    step === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+
+  // Draw constant (blue)
+  ctx.strokeStyle = '#3b82f6';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(stepToX(warmupSteps), lrToY(maxLR));
+  ctx.lineTo(stepToX(totalSteps), lrToY(maxLR));
+  ctx.stroke();
+
+  // Warmup line marker
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(stepToX(warmupSteps), pad.t);
+  ctx.lineTo(stepToX(warmupSteps), H - pad.b);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('warmup', stepToX(5), pad.t - 5);
+}
+
+// Draw on load and on resize
+window.addEventListener('DOMContentLoaded', drawLRCurve);
+window.addEventListener('resize', drawLRCurve);
+
+// ── Merge animation ───────────────────────────────
+function animateMerge() {
+  const w0 = document.getElementById('merge-w0');
+  const ba = document.getElementById('merge-ba');
+  const result = document.getElementById('merge-result');
+
+  // Reset
+  w0.style.transform = 'scale(1)';
+  ba.style.transform = 'scale(1)';
+  result.style.opacity = '0';
+
+  // Step 1: highlight
+  setTimeout(() => {
+    w0.style.background = '#dbeafe';
+    w0.style.border = '2px solid var(--accent)';
+    ba.style.background = '#ede9fe';
+    ba.style.border = '2px solid var(--purple)';
+  }, 100);
+
+  // Step 2: animate W0 towards result
+  setTimeout(() => {
+    w0.style.transition = 'transform .5s ease';
+    w0.style.transform = 'scale(0.85)';
+    // BA shrinks
+    const bDiv = ba.querySelector('div');
+    if (bDiv) { bDiv.style.transition = 'transform .5s'; bDiv.style.transform = 'scale(0.7)'; }
+  }, 600);
+
+  // Step 3: show merged result
+  setTimeout(() => {
+    result.style.opacity = '1';
+    result.style.transform = 'scale(1.05)';
+    result.style.transition = 'opacity .5s, transform .5s';
+  }, 1200);
+
+  // Reset styles after
+  setTimeout(() => {
+    w0.style.background = '#cbd5e1';
+    w0.style.border = '';
+    w0.style.transform = 'scale(1)';
+    result.style.transform = 'scale(1)';
+  }, 2500);
+}
+
+// ── GGUF pipeline animation ───────────────────────
+const ggufStepIds = ['gp-hf', 'gp-convert', 'gp-fp16', 'gp-quant', 'gp-final'];
+let ggufStep = 0;
+
+function animateGGUF() {
+  ggufStepIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+
+  ggufStep = 0;
+
+  function nextStep() {
+    if (ggufStep < ggufStepIds.length) {
+      const el = document.getElementById(ggufStepIds[ggufStep]);
+      if (el) el.classList.add('active');
+      ggufStep++;
+      setTimeout(nextStep, 700);
+    }
+  }
+  nextStep();
+}
+
+// ── Quantization bar animation ────────────────────
+function animateQuantBars() {
+  const targets = {
+    'qbar-fp16': 100,
+    'qbar-q8':    54,
+    'qbar-q4km':  32,
+    'qbar-q3':    24,
+  };
+
+  Object.entries(targets).forEach(([id, pct], i) => {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) el.style.width = pct + '%';
+    }, i * 200);
+  });
+}
+
+// ── GDS cluster pulse ─────────────────────────────
+function pulseClusters() {
+  const clusters = ['gc-pnr', 'gc-ssr', 'gc-cmd', 'gc-reg'];
+  clusters.forEach((id, i) => {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.transform = 'scale(1.03)';
+      el.style.boxShadow = '0 4px 12px rgba(59,130,246,.2)';
+      setTimeout(() => {
+        el.style.transform = '';
+        el.style.boxShadow = '';
+      }, 600);
+    }, i * 300);
+  });
+}
+
+// Auto-trigger cluster pulse once visible
+const clusterSection = document.getElementById('sec3');
+if (clusterSection) {
+  const clusterObs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) {
+      pulseClusters();
+      clusterObs.disconnect();
+    }
+  }, { threshold: 0.4 });
+  clusterObs.observe(clusterSection);
+}
+
+// Auto-trigger quant bars when section is visible
+const quantSection = document.getElementById('sec12');
+if (quantSection) {
+  const quantObs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) {
+      setTimeout(animateQuantBars, 400);
+      quantObs.disconnect();
+    }
+  }, { threshold: 0.3 });
+  quantObs.observe(quantSection);
+}
+
+// Auto-draw LR canvas when section visible
+const trainSection = document.getElementById('sec6');
+if (trainSection) {
+  const trainObs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) {
+      drawLRCurve();
+      trainObs.disconnect();
+    }
+  }, { threshold: 0.3 });
+  trainObs.observe(trainSection);
+}
+
+// Initialize rank viz
+window.addEventListener('DOMContentLoaded', () => {
+  if (document.getElementById('rankSlider')) updateRankViz();
+});
+</script>
+</body>
+</html>

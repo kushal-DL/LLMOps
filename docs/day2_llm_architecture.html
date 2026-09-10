@@ -1,0 +1,2400 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 2: NanoLlama v3 — LLMOps Workshop</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --sidebar-bg: #1e293b;
+      --sidebar-text: #cbd5e1;
+      --accent: #3b82f6;
+      --accent-light: #dbeafe;
+      --accent-dark: #1d4ed8;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --code-bg: #1e293b;
+      --code-text: #e2e8f0;
+      --green: #10b981;
+      --radius: 12px;
+      --shadow: 0 1px 3px 0 rgb(0 0 0/.1),0 1px 2px -1px rgb(0 0 0/.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0/.1),0 4px 6px -4px rgb(0 0 0/.1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+      line-height: 1.65;
+    }
+
+    /* ── Sidebar ─────────────────────────────────── */
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: var(--sidebar-bg);
+      color: var(--sidebar-text);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 1.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: .15rem;
+      transition: width .25s ease, min-width .25s ease, padding .25s ease;
+    }
+
+    .sidebar.collapsed {
+      width: 48px;
+      min-width: 48px;
+      padding: 1rem .4rem;
+      overflow: hidden;
+    }
+
+    .sidebar.collapsed .sidebar-logo,
+    .sidebar.collapsed .sidebar-day,
+    .sidebar.collapsed .sidebar-section,
+    .sidebar.collapsed a span,
+    .sidebar.collapsed a { opacity: 0; pointer-events: none; }
+
+    .sidebar.collapsed .sidebar-toggle { opacity: 1; pointer-events: auto; }
+
+    .sidebar-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px;
+      height: 30px;
+      border: none;
+      border-radius: 6px;
+      background: rgba(255,255,255,.1);
+      color: #cbd5e1;
+      cursor: pointer;
+      transition: background .15s;
+      flex-shrink: 0;
+      margin-bottom: .5rem;
+      align-self: flex-end;
+    }
+
+    .sidebar-toggle:hover { background: rgba(255,255,255,.18); color: white; }
+
+    .sidebar.collapsed .sidebar-toggle {
+      align-self: center;
+      margin-bottom: 0;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+
+    .sidebar-toggle svg { transition: transform .25s ease; }
+    .sidebar.collapsed .sidebar-toggle svg { transform: rotate(180deg); }
+
+    .sidebar-logo {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+      color: #475569;
+      padding: 0 .5rem .75rem;
+      border-bottom: 1px solid #334155;
+      margin-bottom: .75rem;
+    }
+
+    .sidebar-day {
+      font-size: 1rem;
+      font-weight: 700;
+      color: white;
+      padding: .35rem .5rem;
+      margin-bottom: .35rem;
+    }
+
+    .sidebar a {
+      display: flex;
+      align-items: center;
+      gap: .4rem;
+      color: var(--sidebar-text);
+      text-decoration: none;
+      padding: .35rem .75rem;
+      border-radius: 6px;
+      font-size: .82rem;
+      transition: all .15s;
+    }
+
+    .sidebar a:hover { background: rgba(255,255,255,.07); color: white; }
+    .sidebar a.active { background: var(--accent); color: white; }
+
+    .sidebar-section {
+      font-size: .64rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: #475569;
+      padding: .9rem .5rem .2rem;
+    }
+
+    /* ── Main ────────────────────────────────────── */
+    .main {
+      flex: 1;
+      max-width: 880px;
+      padding: 2.5rem 2.5rem 4rem;
+      overflow-x: hidden;
+    }
+
+    /* ── Hero ────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, #1e3a5f 0%, #1e293b 100%);
+      border-radius: var(--radius);
+      padding: 2.75rem 3rem;
+      color: white;
+      margin-bottom: 3rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -60%;
+      right: -15%;
+      width: 420px;
+      height: 420px;
+      background: radial-gradient(circle, rgba(59,130,246,.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      background: rgba(59,130,246,.2);
+      border: 1px solid rgba(59,130,246,.3);
+      color: #93c5fd;
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: .25rem .85rem;
+      border-radius: 999px;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero h1 { font-size: 2.4rem; font-weight: 800; line-height: 1.15; margin-bottom: .6rem; }
+    .hero p { font-size: 1.05rem; color: #94a3b8; max-width: 560px; margin-bottom: 2rem; }
+
+    .hero-stats { display: flex; gap: 2.5rem; flex-wrap: wrap; }
+    .hero-stat { display: flex; flex-direction: column; gap: .15rem; }
+    .hero-stat-value { font-size: 1.4rem; font-weight: 700; color: #60a5fa; }
+    .hero-stat-label { font-size: .7rem; color: #64748b; text-transform: uppercase; letter-spacing: .05em; }
+
+    /* ── Section ─────────────────────────────────── */
+    section { margin-bottom: 3.5rem; scroll-margin-top: 1.5rem; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+      padding-bottom: .75rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .section-number {
+      width: 34px;
+      height: 34px;
+      min-width: 34px;
+      background: var(--accent);
+      color: white;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: .88rem;
+    }
+
+    h2 { font-size: 1.5rem; font-weight: 700; color: var(--text); }
+    h3 { font-size: 1.05rem; font-weight: 600; color: var(--text); margin: 1.6rem 0 .65rem; }
+
+    p { margin-bottom: .9rem; color: #334155; font-size: .95rem; }
+    ul, ol { padding-left: 1.4rem; color: #334155; font-size: .95rem; margin-bottom: .9rem; }
+    li { margin-bottom: .35rem; }
+
+    /* ── Cards ───────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 1.4rem;
+      box-shadow: var(--shadow);
+      margin-bottom: 1.4rem;
+    }
+
+    .card-title {
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: .9rem;
+    }
+
+    /* ── Callouts ────────────────────────────────── */
+    .callout {
+      border-radius: 8px;
+      padding: .9rem 1.1rem;
+      margin: 1.1rem 0;
+      display: flex;
+      gap: .7rem;
+      align-items: flex-start;
+      font-size: .88rem;
+    }
+
+    .callout-icon { font-size: 1.05rem; margin-top: .1rem; flex-shrink: 0; }
+    .callout.info  { background: #eff6ff; border-left: 3px solid #3b82f6; color: #1e40af; }
+    .callout.tip   { background: #f0fdf4; border-left: 3px solid #10b981; color: #065f46; }
+    .callout.warning { background: #fffbeb; border-left: 3px solid #f59e0b; color: #92400e; }
+
+    /* ── Code blocks ─────────────────────────────── */
+    .code-block {
+      background: var(--code-bg);
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 1.1rem 0;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .55rem 1rem;
+      background: #0f172a;
+      border-bottom: 1px solid #334155;
+    }
+
+    .code-lang {
+      font-size: .67rem;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+
+    .code-dots { display: flex; gap: 5px; }
+    .code-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .code-dot:nth-child(1) { background: #ef4444; }
+    .code-dot:nth-child(2) { background: #f59e0b; }
+    .code-dot:nth-child(3) { background: #10b981; }
+
+    pre { padding: 1.1rem 1.4rem; overflow-x: auto; margin: 0; }
+
+    code {
+      font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+      font-size: .83rem;
+      line-height: 1.75;
+      color: var(--code-text);
+    }
+
+    :not(pre) > code {
+      background: #f1f5f9;
+      color: #be185d;
+      padding: .1rem .35rem;
+      border-radius: 4px;
+      font-size: .82em;
+      font-family: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+    }
+
+    /* Syntax highlighting */
+    .kw { color: #c084fc; }
+    .fn { color: #60a5fa; }
+    .st { color: #34d399; }
+    .cm { color: #475569; font-style: italic; }
+    .nm { color: #fbbf24; }
+    .tp { color: #f472b6; }
+    .op { color: #94a3b8; }
+
+    /* ── Diagrams ─────────────────────────────────── */
+    .diagram-container {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.75rem;
+      margin: 1.25rem 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .diagram-title {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+    }
+
+    .play-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: .38rem .85rem;
+      font-size: .78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .15s;
+      margin-top: .9rem;
+      margin-right: .5rem;
+    }
+
+    .play-btn:hover { background: var(--accent-dark); }
+    .play-btn.secondary { background: #64748b; }
+    .play-btn.secondary:hover { background: #475569; }
+
+    /* ── Tables ──────────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; margin: 1.1rem 0; font-size: .875rem; }
+
+    th {
+      background: #f1f5f9;
+      text-align: left;
+      padding: .65rem .95rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: .72rem;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      border-bottom: 2px solid var(--border);
+    }
+
+    td { padding: .65rem .95rem; border-top: 1px solid var(--border); color: #334155; }
+    tr:hover td { background: #f8fafc; }
+
+    /* ── Tags ────────────────────────────────────── */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: .18rem .55rem;
+      border-radius: 999px;
+      font-size: .73rem;
+      font-weight: 600;
+      margin: 1px;
+    }
+
+    .tag-blue   { background: #dbeafe; color: #1d4ed8; }
+    .tag-green  { background: #dcfce7; color: #15803d; }
+    .tag-orange { background: #fef3c7; color: #92400e; }
+    .tag-purple { background: #ede9fe; color: #6d28d9; }
+    .tag-pink   { background: #fce7f3; color: #9d174d; }
+
+    /* ── Math formula ────────────────────────────── */
+    .math-formula {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.1rem 1.4rem;
+      text-align: center;
+      font-family: 'Georgia', serif;
+      font-size: 1.05rem;
+      color: var(--text);
+      margin: 1.1rem 0;
+      overflow-x: auto;
+    }
+
+    /* ── Pipeline ────────────────────────────────── */
+    .pipeline {
+      display: flex;
+      align-items: flex-start;
+      gap: 0;
+      overflow-x: auto;
+      padding: .75rem 0;
+    }
+
+    .pipe-step { display: flex; flex-direction: column; align-items: center; gap: .4rem; }
+
+    .pipe-box {
+      background: white;
+      border: 2px solid var(--border);
+      border-radius: 10px;
+      padding: .65rem 1.1rem;
+      text-align: center;
+      min-width: 95px;
+      box-shadow: var(--shadow);
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .pipe-box.s1 { border-color: #93c5fd; background: #eff6ff; }
+    .pipe-box.s2 { border-color: #86efac; background: #f0fdf4; }
+    .pipe-box.s3 { border-color: #fcd34d; background: #fffbeb; }
+    .pipe-box.s4 { border-color: #c084fc; background: #faf5ff; }
+    .pipe-box.s5 { border-color: #f9a8d4; background: #fdf2f8; }
+    .pipe-box.s6 { border-color: #6ee7b7; background: #ecfdf5; }
+
+    .pipe-label { font-size: .67rem; color: var(--text-muted); text-align: center; max-width: 95px; }
+
+    .pipe-arrow {
+      font-size: 1.1rem;
+      color: #cbd5e1;
+      padding: 0 .2rem;
+      padding-bottom: 1.6rem;
+      flex-shrink: 0;
+    }
+
+    /* ── Day next section ──────────────────────── */
+    .next-day {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      border-radius: var(--radius);
+      padding: 2.25rem 2.5rem;
+      color: white;
+      margin-top: 3rem;
+    }
+
+    .next-day h3 { color: #60a5fa; font-size: 1.1rem; margin: 0 0 .5rem; }
+    .next-day p { color: #94a3b8; margin-bottom: 1rem; }
+
+    .next-day ul { color: #94a3b8; padding-left: 1.4rem; }
+    .next-day li { margin-bottom: .3rem; }
+    .next-day strong { color: #e2e8f0; }
+
+    /* ── Arch upgrade table ──────────────────────── */
+    td.old { color: #64748b; }
+    td.new { color: #1d4ed8; font-weight: 600; }
+    td.benefit { color: #065f46; font-size: .83rem; }
+
+    /* ── Norm steps ──────────────────────────────── */
+    .norm-compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+      margin: 1rem 0;
+    }
+
+    .norm-box { border-radius: 10px; padding: 1.1rem; }
+    .norm-box.layernorm { background: #eff6ff; border: 2px solid #93c5fd; }
+    .norm-box.rmsnorm   { background: #f0fdf4; border: 2px solid #86efac; }
+
+    .norm-box h4 { font-size: .85rem; font-weight: 700; margin-bottom: .75rem; }
+    .norm-box.layernorm h4 { color: #1d4ed8; }
+    .norm-box.rmsnorm h4   { color: #065f46; }
+
+    .norm-step {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      padding: .3rem .5rem;
+      border-radius: 6px;
+      margin-bottom: .35rem;
+      font-size: .8rem;
+      font-weight: 500;
+      transition: background .3s, transform .3s;
+    }
+
+    .norm-step .step-num {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .68rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .layernorm .norm-step .step-num { background: #bfdbfe; color: #1d4ed8; }
+    .rmsnorm   .norm-step .step-num { background: #bbf7d0; color: #065f46; }
+
+    .norm-step.highlighted { transform: translateX(4px); }
+    .layernorm .norm-step.highlighted { background: #dbeafe; }
+    .rmsnorm   .norm-step.highlighted { background: #dcfce7; }
+
+    /* ── GQA diagram ─────────────────────────────── */
+    .gqa-diagram { overflow-x: auto; }
+
+    .head-row {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+      margin: .5rem 0;
+    }
+
+    .head-box {
+      width: 44px;
+      height: 36px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .7rem;
+      font-weight: 700;
+      border: 2px solid;
+      transition: all .3s;
+    }
+
+    .head-q  { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+    .head-kv { background: #dcfce7; border-color: #86efac; color: #065f46; }
+    .head-kv.shared-2 { width: 94px; }
+
+    .gqa-label {
+      text-align: center;
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin: .25rem 0;
+    }
+
+    .gqa-connector {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin: 2px 0;
+    }
+
+    .connector-line {
+      width: 44px;
+      height: 12px;
+      border-left: 2px solid #cbd5e1;
+      border-right: 2px solid #cbd5e1;
+      border-bottom: 2px solid #cbd5e1;
+      border-radius: 0 0 4px 4px;
+    }
+
+    /* ── SwiGLU flow ─────────────────────────────── */
+    .swiglu-flow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .5rem;
+      padding: .5rem 0;
+    }
+
+    .flow-input {
+      background: #f1f5f9;
+      border: 2px solid #cbd5e1;
+      border-radius: 8px;
+      padding: .5rem 1.5rem;
+      font-size: .85rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .flow-split {
+      display: flex;
+      gap: 2rem;
+      position: relative;
+    }
+
+    .flow-split::before {
+      content: '';
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 40px);
+      height: 12px;
+      border-left: 2px solid #cbd5e1;
+      border-right: 2px solid #cbd5e1;
+      border-top: 2px solid #cbd5e1;
+      border-radius: 4px 4px 0 0;
+    }
+
+    .flow-branch {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .35rem;
+    }
+
+    .flow-box {
+      border-radius: 8px;
+      padding: .45rem 1rem;
+      font-size: .82rem;
+      font-weight: 600;
+      text-align: center;
+      transition: all .3s;
+      min-width: 100px;
+    }
+
+    .flow-box.gate  { background: #fef3c7; border: 2px solid #fcd34d; color: #92400e; }
+    .flow-box.up    { background: #eff6ff; border: 2px solid #93c5fd; color: #1e40af; }
+    .flow-box.silu  { background: #fef9c3; border: 2px solid #fde047; color: #713f12; }
+    .flow-box.mul   { background: #fdf4ff; border: 2px solid #d8b4fe; color: #6d28d9; font-size: 1rem; }
+    .flow-box.down  { background: #f0fdf4; border: 2px solid #86efac; color: #065f46; }
+    .flow-box.out   { background: #1e293b; border: 2px solid #475569; color: #e2e8f0; }
+
+    .flow-box.active { box-shadow: 0 0 0 3px rgba(59,130,246,.4); transform: scale(1.05); }
+
+    .flow-arrow-down {
+      width: 2px;
+      height: 16px;
+      background: #cbd5e1;
+      position: relative;
+    }
+
+    .flow-arrow-down::after {
+      content: '▼';
+      position: absolute;
+      bottom: -8px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: .5rem;
+      color: #94a3b8;
+    }
+
+    /* ── Block flow diagram ──────────────────────── */
+    .block-flow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    .block-row {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      justify-content: center;
+      position: relative;
+    }
+
+    .block-box {
+      border-radius: 8px;
+      padding: .55rem 1.25rem;
+      font-size: .82rem;
+      font-weight: 600;
+      text-align: center;
+      min-width: 140px;
+      transition: all .3s;
+      border: 2px solid;
+    }
+
+    .block-box.input  { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
+    .block-box.norm   { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+    .block-box.attn   { background: #eff6ff; border-color: #93c5fd; color: #1e40af; }
+    .block-box.add    { background: #dcfce7; border-color: #86efac; color: #065f46; border-radius: 50%; width: 36px; min-width: 36px; height: 36px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1rem; }
+    .block-box.ffn    { background: #fdf4ff; border-color: #d8b4fe; color: #6d28d9; }
+    .block-box.output { background: #1e293b; border-color: #475569; color: #e2e8f0; }
+
+    .block-box.active { box-shadow: 0 0 0 3px rgba(59,130,246,.4); }
+
+    .block-down {
+      width: 2px;
+      height: 18px;
+      background: #cbd5e1;
+      margin: 0 auto;
+    }
+
+    .residual-skip {
+      position: absolute;
+      right: calc(50% - 110px);
+      top: -9px;
+      bottom: -9px;
+      width: 28px;
+      border-top: 2px solid #94a3b8;
+      border-right: 2px solid #94a3b8;
+      border-bottom: 2px solid #94a3b8;
+      border-radius: 0 6px 6px 0;
+      pointer-events: none;
+    }
+
+    /* ── Model stack ─────────────────────────────── */
+    .model-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      align-items: center;
+      padding: 1rem 0;
+    }
+
+    .stack-item {
+      width: 320px;
+      border-radius: 8px;
+      padding: .55rem 1rem;
+      font-size: .82rem;
+      font-weight: 600;
+      text-align: center;
+      border: 2px solid;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity .4s, transform .4s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .stack-item.visible { opacity: 1; transform: translateY(0); }
+
+    .stack-item.emb    { background: #eff6ff; border-color: #93c5fd; color: #1e40af; }
+    .stack-item.drop   { background: #f8fafc; border-color: #e2e8f0; color: #64748b; }
+    .stack-item.blk    { background: #fdf4ff; border-color: #d8b4fe; color: #6d28d9; }
+    .stack-item.norm   { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+    .stack-item.head   { background: #f0fdf4; border-color: #86efac; color: #065f46; }
+
+    .stack-params { font-size: .7rem; font-weight: 500; opacity: .75; }
+
+    .stack-arrow {
+      width: 2px;
+      height: 6px;
+      background: #cbd5e1;
+      margin: 0 auto;
+    }
+
+    .weight-tie {
+      width: 320px;
+      text-align: center;
+      font-size: .72rem;
+      color: #9d174d;
+      margin-top: .25rem;
+      font-style: italic;
+    }
+
+    /* ── LR canvas ───────────────────────────────── */
+    canvas { display: block; }
+
+    /* ── Temperature bars ────────────────────────── */
+    .temp-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin: .75rem 0;
+    }
+
+    .temp-bar-row {
+      display: grid;
+      grid-template-columns: 70px 1fr 45px;
+      gap: .5rem;
+      align-items: center;
+    }
+
+    .temp-token { font-size: .78rem; font-weight: 600; color: var(--text); }
+    .temp-bar-bg { background: #f1f5f9; border-radius: 4px; height: 22px; overflow: hidden; }
+    .temp-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; transition: width .5s ease; }
+    .temp-val { font-size: .75rem; color: var(--text-muted); text-align: right; }
+
+    .temp-controls {
+      display: flex;
+      gap: .5rem;
+      align-items: center;
+      margin-bottom: .75rem;
+      flex-wrap: wrap;
+    }
+
+    .temp-controls label { font-size: .82rem; font-weight: 600; color: var(--text); }
+    .temp-controls input[type=range] { width: 140px; }
+    .temp-display { font-size: .9rem; font-weight: 700; color: var(--accent); min-width: 35px; }
+
+    /* ── Summary table accents ───────────────────── */
+    td.component-name { font-weight: 700; color: var(--text); }
+    td.class-name code { font-size: .8rem; }
+
+    @media (max-width: 700px) {
+      .norm-compare { grid-template-columns: 1fr; }
+      .flow-split { gap: .75rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════ SIDEBAR -->
+<nav class="sidebar" id="sidebar">
+  <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <polyline points="15 18 9 12 15 6"/>
+    </svg>
+  </button>
+
+  <div class="sidebar-logo">LLMOps Workshop</div>
+  <div class="sidebar-day">Day 2</div>
+
+  <div class="sidebar-section">Overview</div>
+  <a href="#big-picture">🗺 Big Picture</a>
+
+  <div class="sidebar-section">Architecture</div>
+  <a href="#s0-setup">0. Setup</a>
+  <a href="#s1-config">1. Model Config</a>
+  <a href="#s2-rmsnorm">2. RMSNorm</a>
+  <a href="#s3-rope">3. RoPE</a>
+  <a href="#s4-gqa">4. GQA</a>
+  <a href="#s5-swiglu">5. SwiGLU</a>
+  <a href="#s6-block">6. Transformer Block</a>
+  <a href="#s7-model">7. Full Model</a>
+
+  <div class="sidebar-section">Training</div>
+  <a href="#s8-training">8. Training Recipe</a>
+  <a href="#s9-eval">9. Evaluation</a>
+  <a href="#s10-loop">10. Training Loop</a>
+  <a href="#s11-ckpt">11. Checkpoint</a>
+  <a href="#s12-gen">12. Generation</a>
+
+  <div class="sidebar-section">Wrap-up</div>
+  <a href="#s-summary">Summary</a>
+</nav>
+
+<!-- ══════════════════════════════════════════════ MAIN -->
+<main class="main">
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">Day 2 of 5</div>
+    <h1>NanoLlama v3<br>Modern LLM Architecture</h1>
+    <p>Build a 51M-parameter Llama-style model from scratch — implementing every architectural upgrade that powers today's frontier models.</p>
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <span class="hero-stat-value">51M</span>
+        <span class="hero-stat-label">Parameters</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-value">8</span>
+        <span class="hero-stat-label">Layers</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-value">4</span>
+        <span class="hero-stat-label">Arch Upgrades</span>
+      </div>
+      <div class="hero-stat">
+        <span class="hero-stat-value">~20 min</span>
+        <span class="hero-stat-label">Training</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ BIG PICTURE ══════════════════════════════════ -->
+  <section id="big-picture">
+    <div class="section-header">
+      <div class="section-number" style="background:#6d28d9;">🗺</div>
+      <h2>Big Picture: GPT-2 → NanoLlama v3</h2>
+    </div>
+
+    <p>Day 1 built a GPT-2-style transformer — a solid baseline, but five years of research have identified cleaner, faster alternatives for each component. Today you implement those upgrades one by one, assembling a model architecturally identical to Llama 2/3, Mistral, and Gemma at smaller scale.</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>GPT-2 (Day 1)</th>
+          <th>NanoLlama v3 (Day 2)</th>
+          <th>Benefit</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Position encoding</td>
+          <td class="old">Learned pos. embeddings</td>
+          <td class="new">RoPE</td>
+          <td class="benefit">Relative position; length generalisation</td>
+        </tr>
+        <tr>
+          <td>Normalisation</td>
+          <td class="old">LayerNorm</td>
+          <td class="new">RMSNorm</td>
+          <td class="benefit">~10% faster; no bias; standard in Llama/Mistral</td>
+        </tr>
+        <tr>
+          <td>Feed-forward</td>
+          <td class="old">GELU MLP</td>
+          <td class="new">SwiGLU</td>
+          <td class="benefit">Gated FFN; better loss-per-parameter</td>
+        </tr>
+        <tr>
+          <td>Attention heads</td>
+          <td class="old">Full MHA (8Q/8KV)</td>
+          <td class="new">GQA (8Q/4KV)</td>
+          <td class="benefit">2× KV memory savings at inference</td>
+        </tr>
+        <tr>
+          <td>Bias terms</td>
+          <td class="old">Biased linears</td>
+          <td class="new">No bias anywhere</td>
+          <td class="benefit">Regularisation; matches modern LLM convention</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="diagram-container">
+      <div class="diagram-title">NanoLlama v3 — Full Architecture Pipeline</div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:0;padding:.5rem 0;" id="archPipeline">
+        <div class="stack-item emb"  style="opacity:0;transform:translateY(10px);transition:all .4s .0s">Token Embedding <span class="stack-params">50,257 × 512 = 25.7M params</span></div>
+        <div class="stack-arrow"></div>
+        <div class="stack-item drop" style="opacity:0;transform:translateY(10px);transition:all .4s .1s">Dropout (p=0.1) <span class="stack-params">no params</span></div>
+        <div class="stack-arrow"></div>
+        <div class="stack-item blk"  style="opacity:0;transform:translateY(10px);transition:all .4s .2s">TransformerBlock × 8 <span class="stack-params">~3.2M × 8 = 25.5M params</span></div>
+        <div style="padding:.15rem 0;opacity:0;transition:all .4s .25s;font-size:.72rem;color:#94a3b8;text-align:center;" id="archBlockDetail">
+          Each block: RMSNorm → GQA+RoPE → residual → RMSNorm → SwiGLU → residual
+        </div>
+        <div class="stack-arrow"></div>
+        <div class="stack-item norm" style="opacity:0;transform:translateY(10px);transition:all .4s .3s">Final RMSNorm <span class="stack-params">512 params</span></div>
+        <div class="stack-arrow"></div>
+        <div class="stack-item head" style="opacity:0;transform:translateY(10px);transition:all .4s .4s">LM Head (weight-tied) <span class="stack-params">shared with embedding</span></div>
+        <div class="stack-arrow"></div>
+        <div class="stack-item emb"  style="opacity:0;transform:translateY(10px);transition:all .4s .5s;background:#ecfdf5;border-color:#6ee7b7;color:#065f46;">Logits <span class="stack-params">50,257 per token position</span></div>
+      </div>
+      <button class="play-btn" onclick="animateArch()">▶ Animate Pipeline</button>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 0: SETUP ══════════════════════════════ -->
+  <section id="s0-setup">
+    <div class="section-header">
+      <div class="section-number">0</div>
+      <h2>Setup — Re-run Day 1 Pipeline</h2>
+    </div>
+
+    <p>Each Kaggle notebook runs in an isolated kernel. Every import, device detection, and dataset loading step needs to run again. Day 2's first cell re-executes the entire Day 1 data pipeline to keep the notebook self-contained.</p>
+
+    <div class="callout info">
+      <span class="callout-icon">ℹ️</span>
+      <div>The setup cell is intentionally complete — copying it means you can open this notebook on any machine with a GPU and run straight through without hunting for missing definitions.</div>
+    </div>
+
+    <h3>Device detection and precision</h3>
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python</span></div>
+      <pre><code><span class="kw">import</span> torch, math, time
+<span class="kw">from</span> dataclasses <span class="kw">import</span> dataclass
+<span class="kw">from</span> torch.nn <span class="kw">import</span> functional <span class="kw">as</span> F
+
+device  = <span class="st">'cuda'</span> <span class="kw">if</span> torch.cuda.is_available() <span class="kw">else</span> <span class="st">'cpu'</span>
+n_gpus  = torch.cuda.device_count()
+
+<span class="cm"># TF32: matrix multiply faster, same effective precision for deep learning</span>
+torch.backends.cuda.matmul.allow_tf32 = <span class="nm">True</span>
+torch.backends.cudnn.allow_tf32       = <span class="nm">True</span>
+
+torch.manual_seed(<span class="nm">42</span>)
+torch.cuda.manual_seed_all(<span class="nm">42</span>)</code></pre>
+    </div>
+
+    <h3>Chunked tokenization</h3>
+    <p>The WikiText-103 train split has ~1.8M lines. Calling <code>tokenizer.encode()</code> on a single enormous string would build the whole thing in memory first. Processing in 5,000-line chunks keeps memory usage predictable.</p>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python</span></div>
+      <pre><code>tokenizer  = <span class="fn">AutoTokenizer</span>.from_pretrained(<span class="st">'gpt2'</span>)
+train_ids  = []
+chunk_size = <span class="nm">5000</span>
+
+<span class="kw">for</span> i <span class="kw">in</span> <span class="fn">range</span>(<span class="nm">0</span>, <span class="fn">len</span>(train_lines), chunk_size):
+    chunk = <span class="st">'\n'</span>.join(train_lines[i : i + chunk_size])
+    train_ids.extend(tokenizer.encode(chunk))
+
+train_data = torch.<span class="fn">tensor</span>(train_ids, dtype=torch.long)   <span class="cm"># flat tensor of token IDs</span></code></pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python — SlidingWindowDataset (from Day 1)</span></div>
+      <pre><code><span class="kw">class</span> <span class="tp">SlidingWindowDataset</span>(Dataset):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, tokens, block_size=<span class="nm">1024</span>, stride=<span class="nm">512</span>):
+        self.tokens     = tokens
+        self.block_size = block_size
+        self.starts     = <span class="fn">list</span>(<span class="fn">range</span>(<span class="nm">0</span>, <span class="fn">len</span>(tokens) - block_size - <span class="nm">1</span>, stride))
+
+    <span class="kw">def</span> <span class="fn">__getitem__</span>(self, idx):
+        s = self.starts[idx]
+        <span class="kw">return</span> self.tokens[s : s + self.block_size], \
+               self.tokens[s<span class="op">+</span><span class="nm">1</span> : s + self.block_size <span class="op">+</span> <span class="nm">1</span>]</code></pre>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 1: MODEL CONFIG ═══════════════════════ -->
+  <section id="s1-config">
+    <div class="section-header">
+      <div class="section-number">1</div>
+      <h2>Model Configuration</h2>
+    </div>
+
+    <p>All hyperparameters live in a single <code>LlamaConfig</code> dataclass — one object passed everywhere, easy to serialise to JSON alongside a checkpoint. This mirrors the HuggingFace <code>PretrainedConfig</code> pattern used by every major open-weights model.</p>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python</span></div>
+      <pre><code><span class="op">@</span>dataclass
+<span class="kw">class</span> <span class="tp">LlamaConfig</span>:
+    vocab_size:        <span class="tp">int</span>   = <span class="nm">50257</span>   <span class="cm"># GPT-2 tokenizer</span>
+    block_size:        <span class="tp">int</span>   = <span class="nm">1024</span>    <span class="cm"># context window (tokens)</span>
+    n_layer:           <span class="tp">int</span>   = <span class="nm">8</span>       <span class="cm"># transformer blocks</span>
+    n_head:            <span class="tp">int</span>   = <span class="nm">8</span>       <span class="cm"># query heads</span>
+    n_kv_head:         <span class="tp">int</span>   = <span class="nm">4</span>       <span class="cm"># key-value heads (GQA)</span>
+    n_embd:            <span class="tp">int</span>   = <span class="nm">512</span>     <span class="cm"># embedding / hidden dimension</span>
+    intermediate_size: <span class="tp">int</span>   = <span class="nm">1536</span>    <span class="cm"># SwiGLU expansion</span>
+    dropout:           <span class="tp">float</span> = <span class="nm">0.1</span>
+    rope_theta:        <span class="tp">float</span> = <span class="nm">10000.0</span></code></pre>
+    </div>
+
+    <h3>Parameter budget (~51M)</h3>
+    <table>
+      <thead>
+        <tr><th>Component</th><th>Calculation</th><th>Params</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Token embedding</td><td>50,257 × 512</td><td><strong>25.7M</strong></td></tr>
+        <tr><td>GQA per block</td><td>8Q + 4K + 4V + output projections</td><td>~786K</td></tr>
+        <tr><td>SwiGLU per block</td><td>gate (512×1536) + up (512×1536) + down (1536×512)</td><td>~2.4M</td></tr>
+        <tr><td>RMSNorm × 2 per block</td><td>512 × 2 × 8</td><td>~8K</td></tr>
+        <tr><td>8 blocks total</td><td>(786K + 2.4M) × 8</td><td>~25.5M</td></tr>
+        <tr><td>LM head</td><td>weight-tied with embedding</td><td>0 extra</td></tr>
+        <tr><td colspan="2" style="font-weight:700;">Total</td><td><strong>≈ 51.2M</strong></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout tip">
+      <span class="callout-icon">💡</span>
+      <div><strong>Weight tying</strong> sets <code>self.head.weight = self.tok_emb.weight</code>. The output projection reuses the embedding matrix, saving 25.7M parameters — the single largest saving in the model. It also forces the output space to align with the input embedding space, which improves token prediction quality.</div>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 2: RMSNORM ══════════════════════════════ -->
+  <section id="s2-rmsnorm">
+    <div class="section-header">
+      <div class="section-number">2</div>
+      <h2>RMSNorm</h2>
+    </div>
+
+    <p>Normalisation layers stabilise training by rescaling activations at each layer. The original Transformer used <strong>LayerNorm</strong>. Modern LLMs (Llama 1/2/3, Mistral, Qwen, Gemma, DeepSeek) replace it with the simpler <strong>RMSNorm</strong>.</p>
+
+    <div class="norm-compare">
+      <div>
+        <div class="math-formula" style="font-size:.92rem;">
+          <strong>LayerNorm</strong><br><br>
+          μ = (1/d) Σ xᵢ<br>
+          σ = √( (1/d) Σ (xᵢ−μ)² + ε )<br><br>
+          LN(x) = (x − μ) / σ · γ + β
+        </div>
+      </div>
+      <div>
+        <div class="math-formula" style="font-size:.92rem;border-color:#86efac;">
+          <strong>RMSNorm</strong><br><br>
+          RMS(x) = √( (1/d) Σ xᵢ² + ε )<br><br>
+          RN(x) = x / RMS(x) · γ
+        </div>
+      </div>
+    </div>
+
+    <div class="diagram-container">
+      <div class="diagram-title">Step-by-step comparison</div>
+      <div class="norm-compare">
+        <div class="norm-box layernorm">
+          <h4>LayerNorm — 4 steps</h4>
+          <div class="norm-step" id="ln1"><span class="step-num">1</span> Compute mean μ</div>
+          <div class="norm-step" id="ln2"><span class="step-num">2</span> Subtract mean (x−μ)</div>
+          <div class="norm-step" id="ln3"><span class="step-num">3</span> Compute std σ</div>
+          <div class="norm-step" id="ln4"><span class="step-num">4</span> Divide by σ</div>
+          <div class="norm-step" id="ln5"><span class="step-num">5</span> Scale γ + shift β</div>
+        </div>
+        <div class="norm-box rmsnorm">
+          <h4>RMSNorm — 2 steps</h4>
+          <div class="norm-step" id="rn1"><span class="step-num">1</span> Compute RMS</div>
+          <div class="norm-step" id="rn2"><span class="step-num">2</span> Divide by RMS</div>
+          <div class="norm-step" id="rn3"><span class="step-num">3</span> Scale γ only</div>
+          <div class="norm-step" style="background:#f0fdf4;border-radius:6px;padding:.3rem .5rem;font-size:.75rem;color:#065f46;margin-top:.5rem;">
+            ✓ No mean compute &nbsp; ✓ No β parameter
+          </div>
+        </div>
+      </div>
+      <button class="play-btn" onclick="animateNorm()">▶ Step Through</button>
+      <button class="play-btn secondary" onclick="resetNorm()">↺ Reset</button>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python — RMSNorm</span></div>
+      <pre><code><span class="kw">class</span> <span class="tp">RMSNorm</span>(nn.Module):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, dim, eps=<span class="nm">1e-6</span>):
+        <span class="fn">super</span>().__init__()
+        self.weight = nn.<span class="fn">Parameter</span>(torch.<span class="fn">ones</span>(dim))
+        self.eps    = eps
+
+    <span class="kw">def</span> <span class="fn">forward</span>(self, x):
+        <span class="cm"># cast to float32 before squaring — prevents overflow in fp16</span>
+        norm = x.<span class="fn">float</span>().<span class="fn">pow</span>(<span class="nm">2</span>).<span class="fn">mean</span>(<span class="op">-</span><span class="nm">1</span>, keepdim=<span class="nm">True</span>).<span class="fn">add</span>(self.eps).<span class="fn">rsqrt</span>()
+        <span class="kw">return</span> (x.<span class="fn">float</span>() <span class="op">*</span> norm).<span class="fn">type_as</span>(x) <span class="op">*</span> self.weight</code></pre>
+    </div>
+
+    <div class="callout tip">
+      <span class="callout-icon">💡</span>
+      <div>RMSNorm has <strong>512 parameters</strong> (γ only) vs LayerNorm's <strong>1024 parameters</strong> (γ + β). With 17 norm layers in the model (2 per block × 8 blocks + 1 final), that's 8,704 fewer parameters — small in absolute terms but reflects a principled simplification: mean-centring contributes almost nothing to representation quality.</div>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 3: ROPE ═════════════════════════════════ -->
+  <section id="s3-rope">
+    <div class="section-header">
+      <div class="section-number">3</div>
+      <h2>RoPE: Rotary Position Embeddings</h2>
+    </div>
+
+    <p>GPT-2 adds a <em>learned position embedding</em> table to token embeddings before the first block — each absolute position 0, 1, 2 … gets a different 512-dim vector, learned during training. This has two problems: (1) attention patterns depend on absolute position, not relative distance, and (2) you can't use the model beyond the training context length without re-training.</p>
+
+    <p><strong>RoPE</strong> (Su et al., 2021) takes a different approach: instead of adding position information to the token embedding, it <em>rotates</em> the Query and Key vectors inside every attention layer. The rotation angle depends on position. Because the attention score is Q·Kᵀ, and a dot product of two rotated vectors naturally depends only on the angle <em>between</em> them (i.e. relative position), the model learns relative position encoding for free — with zero extra parameters.</p>
+
+    <div class="math-formula">
+      <strong>The core idea:</strong> rotate q at position m by angle mθ, k at position n by nθ<br><br>
+      q'ₘ = qₘ · e<sup>imθ</sup> &nbsp;&nbsp;&nbsp; k'ₙ = kₙ · e<sup>inθ</sup><br><br>
+      q'ₘ · k'ₙ = qₘ · kₙ · e<sup>i(m−n)θ</sup> &nbsp;→&nbsp; depends only on (m−n)
+    </div>
+
+    <p>For real-valued vectors, complex rotation becomes a 2D rotation applied to consecutive dimension pairs:</p>
+
+    <div class="math-formula" style="font-size:.9rem;">
+      rotate_half(x) = [−x₂, x₁] &nbsp;&nbsp; (swap halves, negate first)<br><br>
+      x' = x·cos(mθ) + rotate_half(x)·sin(mθ)<br><br>
+      Frequencies: θᵢ = rope_theta<sup>−2i/d</sup> &nbsp;&nbsp; (geometric decrease)
+    </div>
+
+    <div class="diagram-container">
+      <div class="diagram-title">RoPE — Position Encoded as Rotation Angle</div>
+      <div style="display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap;">
+        <canvas id="ropeCanvas" width="300" height="200" style="border:1px solid var(--border);border-radius:8px;"></canvas>
+        <div style="flex:1;min-width:180px;">
+          <p style="font-size:.85rem;margin-bottom:.6rem;"><strong>Each position gets a different rotation angle.</strong></p>
+          <div id="ropePosInfo" style="font-size:.8rem;color:var(--text-muted);line-height:1.8;">
+            Position 0: 0°<br>
+            Position 1: θ<br>
+            Position 2: 2θ<br>
+            Position 3: 3θ<br><br>
+            When you compute q·k across positions,<br>
+            only the <em>difference</em> in angle matters.
+          </div>
+          <p style="font-size:.8rem;color:#065f46;margin-top:.6rem;background:#f0fdf4;padding:.4rem .6rem;border-radius:6px;">✓ Zero extra parameters<br>✓ Relative position by construction<br>✓ Generalises to longer sequences</p>
+        </div>
+      </div>
+      <button class="play-btn" onclick="animateRoPE()">▶ Animate Rotations</button>
+      <button class="play-btn secondary" onclick="resetRoPE()">↺ Reset</button>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python — RoPE implementation</span></div>
+      <pre><code><span class="kw">def</span> <span class="fn">rotate_half</span>(x):
+    <span class="cm">"""Swap the two halves of last dim and negate first half."""</span>
+    x1 = x[..., : x.shape[<span class="op">-</span><span class="nm">1</span>] <span class="op">//</span> <span class="nm">2</span>]
+    x2 = x[..., x.shape[<span class="op">-</span><span class="nm">1</span>] <span class="op">//</span> <span class="nm">2</span> :]
+    <span class="kw">return</span> torch.<span class="fn">cat</span>([<span class="op">-</span>x2, x1], dim=<span class="op">-</span><span class="nm">1</span>)
+
+<span class="kw">def</span> <span class="fn">apply_rotary_emb</span>(q, k, cos, sin):
+    cos = cos.<span class="fn">unsqueeze</span>(<span class="nm">0</span>).<span class="fn">unsqueeze</span>(<span class="nm">0</span>)   <span class="cm"># (1, 1, T, head_dim)</span>
+    sin = sin.<span class="fn">unsqueeze</span>(<span class="nm">0</span>).<span class="fn">unsqueeze</span>(<span class="nm">0</span>)
+    q_rot = (q <span class="op">*</span> cos) <span class="op">+</span> (<span class="fn">rotate_half</span>(q) <span class="op">*</span> sin)
+    k_rot = (k <span class="op">*</span> cos) <span class="op">+</span> (<span class="fn">rotate_half</span>(k) <span class="op">*</span> sin)
+    <span class="kw">return</span> q_rot, k_rot
+
+<span class="cm"># Precompute sin/cos table (done once in NanoLlama.__init__)</span>
+head_dim = config.n_embd <span class="op">//</span> config.n_head   <span class="cm"># 512 / 8 = 64</span>
+freqs    = <span class="nm">1.0</span> <span class="op">/</span> (config.rope_theta <span class="op">**</span> (
+    torch.<span class="fn">arange</span>(<span class="nm">0</span>, head_dim, <span class="nm">2</span>).<span class="fn">float</span>() <span class="op">/</span> head_dim
+))                                           <span class="cm"># (head_dim/2,)</span>
+t     = torch.<span class="fn">arange</span>(config.block_size, dtype=torch.float32)
+freqs = torch.<span class="fn">outer</span>(t, freqs)             <span class="cm"># (block_size, head_dim/2)</span>
+
+rope_cos = torch.<span class="fn">cat</span>([freqs.<span class="fn">cos</span>(), freqs.<span class="fn">cos</span>()], dim=<span class="op">-</span><span class="nm">1</span>)   <span class="cm"># (T, head_dim)</span>
+rope_sin = torch.<span class="fn">cat</span>([freqs.<span class="fn">sin</span>(), freqs.<span class="fn">sin</span>()], dim=<span class="op">-</span><span class="nm">1</span>)</code></pre>
+    </div>
+
+    <div class="callout tip">
+      <span class="callout-icon">💡</span>
+      <div>Rotation preserves vector norms — only direction changes, not magnitude. This means RoPE doesn't distort the scale of Q and K, keeping attention scores well-scaled. The frequency schedule θᵢ = rope_theta^(−2i/d) gives fine-grained position information at low-index dimensions and coarse structure at high-index dimensions.</div>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 4: GQA ══════════════════════════════════ -->
+  <section id="s4-gqa">
+    <div class="section-header">
+      <div class="section-number">4</div>
+      <h2>Grouped Query Attention (GQA)</h2>
+    </div>
+
+    <p>At inference time, autoregressive generation requires the model to look back at all previous tokens on every step. The Key and Value tensors for all previous positions must be stored in GPU memory — this is the <strong>KV-cache</strong>. For long contexts, the KV-cache dominates memory consumption, not the model weights.</p>
+
+    <p>Standard <strong>Multi-Head Attention (MHA)</strong> has equal numbers of Q, K, V heads — so the KV-cache grows linearly with the number of heads. <strong>GQA</strong> (Ainslie et al., 2023) uses <em>fewer</em> KV heads than Q heads. Multiple Q heads share a single KV head pair:</p>
+
+    <div class="diagram-container">
+      <div class="diagram-title">MHA vs GQA head structure</div>
+      <div style="display:flex;gap:2rem;flex-wrap:wrap;">
+
+        <div style="flex:1;min-width:200px;">
+          <div class="gqa-label" style="font-weight:700;color:#1e40af;margin-bottom:.5rem;">MHA — 8Q / 8KV (1:1)</div>
+          <div class="head-row" id="mhaQ">
+            <div class="head-box head-q">Q₀</div><div class="head-box head-q">Q₁</div>
+            <div class="head-box head-q">Q₂</div><div class="head-box head-q">Q₃</div>
+            <div class="head-box head-q">Q₄</div><div class="head-box head-q">Q₅</div>
+            <div class="head-box head-q">Q₆</div><div class="head-box head-q">Q₇</div>
+          </div>
+          <div style="display:flex;justify-content:center;gap:6px;margin:2px 0;">
+            <div style="width:44px;height:10px;border-left:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;"></div>
+            <div style="width:44px;height:10px;border-left:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;"></div>
+            <div style="width:44px;height:10px;border-left:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;"></div>
+            <div style="width:44px;height:10px;border-left:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;"></div>
+            <div style="width:44px;height:10px;border-left:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;"></div>
+            <div style="width:44px;height:10px;border-left:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;"></div>
+            <div style="width:44px;height:10px;border-left:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;"></div>
+            <div style="width:44px;height:10px;border-left:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;"></div>
+          </div>
+          <div class="head-row">
+            <div class="head-box head-kv" style="font-size:.62rem;">K₀V₀</div>
+            <div class="head-box head-kv" style="font-size:.62rem;">K₁V₁</div>
+            <div class="head-box head-kv" style="font-size:.62rem;">K₂V₂</div>
+            <div class="head-box head-kv" style="font-size:.62rem;">K₃V₃</div>
+            <div class="head-box head-kv" style="font-size:.62rem;">K₄V₄</div>
+            <div class="head-box head-kv" style="font-size:.62rem;">K₅V₅</div>
+            <div class="head-box head-kv" style="font-size:.62rem;">K₆V₆</div>
+            <div class="head-box head-kv" style="font-size:.62rem;">K₇V₇</div>
+          </div>
+          <div style="margin-top:.5rem;font-size:.75rem;color:#ef4444;text-align:center;">KV-cache: 8 pairs per layer</div>
+        </div>
+
+        <div style="flex:1;min-width:200px;">
+          <div class="gqa-label" style="font-weight:700;color:#065f46;margin-bottom:.5rem;">GQA — 8Q / 4KV (2:1) ← NanoLlama</div>
+          <div class="head-row">
+            <div class="head-box head-q">Q₀</div><div class="head-box head-q">Q₁</div>
+            <div class="head-box head-q">Q₂</div><div class="head-box head-q">Q₃</div>
+            <div class="head-box head-q">Q₄</div><div class="head-box head-q">Q₅</div>
+            <div class="head-box head-q">Q₆</div><div class="head-box head-q">Q₇</div>
+          </div>
+          <div style="display:flex;justify-content:center;gap:0;margin:2px 0;">
+            <div style="width:94px;height:10px;border-left:2px solid #cbd5e1;border-right:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;border-radius:0 0 3px 3px;"></div>
+            <div style="width:10px;"></div>
+            <div style="width:94px;height:10px;border-left:2px solid #cbd5e1;border-right:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;border-radius:0 0 3px 3px;"></div>
+            <div style="width:10px;"></div>
+            <div style="width:94px;height:10px;border-left:2px solid #cbd5e1;border-right:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;border-radius:0 0 3px 3px;"></div>
+            <div style="width:10px;"></div>
+            <div style="width:94px;height:10px;border-left:2px solid #cbd5e1;border-right:2px solid #cbd5e1;border-bottom:2px solid #cbd5e1;border-radius:0 0 3px 3px;"></div>
+          </div>
+          <div class="head-row">
+            <div class="head-box head-kv shared-2" style="font-size:.62rem;">K₀V₀</div>
+            <div class="head-box head-kv shared-2" style="font-size:.62rem;">K₁V₁</div>
+            <div class="head-box head-kv shared-2" style="font-size:.62rem;">K₂V₂</div>
+            <div class="head-box head-kv shared-2" style="font-size:.62rem;">K₃V₃</div>
+          </div>
+          <div style="margin-top:.5rem;font-size:.75rem;color:#065f46;text-align:center;">KV-cache: 4 pairs per layer — 2× savings!</div>
+        </div>
+      </div>
+    </div>
+
+    <p>The <code>repeat_kv</code> function expands 4 KV heads back to 8 before the attention dot-product using a view + expand trick (no memory copy):</p>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python — GQA</span></div>
+      <pre><code><span class="kw">def</span> <span class="fn">repeat_kv</span>(x, n_rep):
+    <span class="cm">"""Expand KV heads to match Q count. No memory copy via expand()."""</span>
+    <span class="kw">if</span> n_rep <span class="op">==</span> <span class="nm">1</span>:
+        <span class="kw">return</span> x
+    B, n_kv, T, D = x.shape
+    x = x[:, :, <span class="nm">None</span>, :, :].<span class="fn">expand</span>(B, n_kv, n_rep, T, D)
+    <span class="kw">return</span> x.<span class="fn">reshape</span>(B, n_kv <span class="op">*</span> n_rep, T, D)
+
+
+<span class="kw">class</span> <span class="tp">GQAttention</span>(nn.Module):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, config):
+        <span class="fn">super</span>().__init__()
+        self.n_rep    = config.n_head <span class="op">//</span> config.n_kv_head   <span class="cm"># = 2</span>
+        self.head_dim = config.n_embd <span class="op">//</span> config.n_head       <span class="cm"># = 64</span>
+
+        <span class="cm"># Separate Q / KV projections — bias=False (Llama convention)</span>
+        self.q_proj = nn.<span class="fn">Linear</span>(config.n_embd, config.n_head    <span class="op">*</span> self.head_dim, bias=<span class="nm">False</span>)
+        self.k_proj = nn.<span class="fn">Linear</span>(config.n_embd, config.n_kv_head <span class="op">*</span> self.head_dim, bias=<span class="nm">False</span>)
+        self.v_proj = nn.<span class="fn">Linear</span>(config.n_embd, config.n_kv_head <span class="op">*</span> self.head_dim, bias=<span class="nm">False</span>)
+        self.o_proj = nn.<span class="fn">Linear</span>(config.n_embd, config.n_embd, bias=<span class="nm">False</span>)
+
+    <span class="kw">def</span> <span class="fn">forward</span>(self, x, cos, sin):
+        B, T, C = x.shape
+        q = self.q_proj(x).<span class="fn">view</span>(B, T, self.n_head,    self.head_dim).<span class="fn">transpose</span>(<span class="nm">1</span>, <span class="nm">2</span>)
+        k = self.k_proj(x).<span class="fn">view</span>(B, T, self.n_kv_head, self.head_dim).<span class="fn">transpose</span>(<span class="nm">1</span>, <span class="nm">2</span>)
+        v = self.v_proj(x).<span class="fn">view</span>(B, T, self.n_kv_head, self.head_dim).<span class="fn">transpose</span>(<span class="nm">1</span>, <span class="nm">2</span>)
+
+        q, k = <span class="fn">apply_rotary_emb</span>(q, k, cos, sin)  <span class="cm"># inject position via RoPE</span>
+        k    = <span class="fn">repeat_kv</span>(k, self.n_rep)           <span class="cm"># (B, n_head, T, head_dim)</span>
+        v    = <span class="fn">repeat_kv</span>(v, self.n_rep)
+
+        att = (q <span class="op">@</span> k.<span class="fn">transpose</span>(<span class="op">-</span><span class="nm">2</span>, <span class="op">-</span><span class="nm">1</span>)) <span class="op">/</span> math.<span class="fn">sqrt</span>(self.head_dim)
+        att = att.<span class="fn">masked_fill</span>(self.mask[:, :, :T, :T] <span class="op">==</span> <span class="nm">0</span>, <span class="fn">float</span>(<span class="st">'-inf'</span>))
+        <span class="kw">return</span> self.resid_drop(self.o_proj(
+            (F.<span class="fn">softmax</span>(att, dim=<span class="op">-</span><span class="nm">1</span>) <span class="op">@</span> v).<span class="fn">transpose</span>(<span class="nm">1</span>,<span class="nm">2</span>).<span class="fn">contiguous</span>().<span class="fn">view</span>(B, T, C)
+        ))</code></pre>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 5: SWIGLU ═══════════════════════════════ -->
+  <section id="s5-swiglu">
+    <div class="section-header">
+      <div class="section-number">5</div>
+      <h2>SwiGLU: Gated Feed-Forward Network</h2>
+    </div>
+
+    <p>The feed-forward sublayer in GPT-2 is a two-layer MLP with GELU activation. <strong>SwiGLU</strong> (Shazeer, 2020) replaces this with a <em>gated</em> variant where one branch controls how much of the other branch's signal passes through.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="math-formula" style="font-size:.88rem;">
+        <strong>GPT-2 FFN</strong><br><br>
+        FFN(x) = W₂ · GELU(W₁x)
+      </div>
+      <div class="math-formula" style="font-size:.88rem;border-color:#d8b4fe;">
+        <strong>SwiGLU</strong><br><br>
+        SwiGLU(x) = W_down · (SiLU(W_gate·x) ⊙ W_up·x)<br>
+        <small>SiLU(x) = x · σ(x)</small>
+      </div>
+    </div>
+
+    <div class="diagram-container">
+      <div class="diagram-title">SwiGLU Gated Flow</div>
+      <div class="swiglu-flow" id="swigluFlow">
+        <div class="flow-box input" id="fg-input">Input x &nbsp;&nbsp; (B, T, 512)</div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-split">
+          <div class="flow-branch">
+            <div class="flow-box gate" id="fg-gate">W_gate</div>
+            <div class="flow-arrow-down"></div>
+            <div class="flow-box silu" id="fg-silu">SiLU(·)</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3rem;padding-top:.5rem;">
+            <div style="font-size:1.4rem;color:#9ca3af;">⊙</div>
+            <div style="font-size:.7rem;color:var(--text-muted);">element-wise<br>multiply</div>
+          </div>
+          <div class="flow-branch">
+            <div class="flow-box up" id="fg-up">W_up</div>
+            <div style="height:38px;"></div>
+          </div>
+        </div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-box down" id="fg-down">W_down &nbsp;&nbsp; (1536 → 512)</div>
+        <div class="flow-arrow-down"></div>
+        <div class="flow-box out" id="fg-out">Output &nbsp;&nbsp; (B, T, 512)</div>
+      </div>
+      <button class="play-btn" onclick="animateSwiGLU()">▶ Animate Forward Pass</button>
+      <button class="play-btn secondary" onclick="resetSwiGLU()">↺ Reset</button>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python — SwiGLU</span></div>
+      <pre><code><span class="kw">class</span> <span class="tp">SwiGLU</span>(nn.Module):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, config):
+        <span class="fn">super</span>().__init__()
+        hidden = config.intermediate_size   <span class="cm"># 1536</span>
+        self.gate_proj = nn.<span class="fn">Linear</span>(config.n_embd, hidden, bias=<span class="nm">False</span>)
+        self.up_proj   = nn.<span class="fn">Linear</span>(config.n_embd, hidden, bias=<span class="nm">False</span>)
+        self.down_proj = nn.<span class="fn">Linear</span>(hidden, config.n_embd, bias=<span class="nm">False</span>)
+        self.drop      = nn.<span class="fn">Dropout</span>(config.dropout)
+
+    <span class="kw">def</span> <span class="fn">forward</span>(self, x):
+        <span class="kw">return</span> self.drop(
+            self.down_proj(
+                F.<span class="fn">silu</span>(self.gate_proj(x)) <span class="op">*</span> self.up_proj(x)
+            )
+        )</code></pre>
+    </div>
+
+    <h3>Activation functions compared</h3>
+    <p>SiLU (Sigmoid Linear Unit) is smooth and non-monotone — it can suppress negative inputs more gracefully than ReLU.</p>
+    <table>
+      <thead><tr><th>x</th><th>ReLU</th><th>GELU</th><th>SiLU</th></tr></thead>
+      <tbody>
+        <tr><td>−2</td><td>0.000</td><td>−0.045</td><td>−0.238</td></tr>
+        <tr><td>−1</td><td>0.000</td><td>−0.159</td><td>−0.269</td></tr>
+        <tr><td>0</td><td>0.000</td><td>0.000</td><td>0.000</td></tr>
+        <tr><td>1</td><td>1.000</td><td>0.841</td><td>0.731</td></tr>
+        <tr><td>2</td><td>2.000</td><td>1.955</td><td>1.762</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout info">
+      <span class="callout-icon">ℹ️</span>
+      <div>SwiGLU uses 3 weight matrices (gate, up, down) instead of 2. To keep total parameter count similar, <code>intermediate_size</code> is set to 1,536 rather than the 2,048 you'd use for a standard FFN with <code>n_embd=512</code>. Despite using more matrices with fewer neurons each, SwiGLU consistently outperforms GELU FFN at the same parameter budget.</div>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 6: TRANSFORMER BLOCK ═══════════════════ -->
+  <section id="s6-block">
+    <div class="section-header">
+      <div class="section-number">6</div>
+      <h2>Transformer Block</h2>
+    </div>
+
+    <p>A transformer block applies attention and FFN in sequence, each wrapped in a <strong>residual connection</strong>. NanoLlama uses the <em>pre-norm</em> pattern: normalise the input <em>before</em> each sublayer (not after).</p>
+
+    <div class="diagram-container">
+      <div class="diagram-title">Pre-Norm Transformer Block — Forward Pass</div>
+      <div style="display:flex;gap:2rem;flex-wrap:wrap;align-items:flex-start;">
+        <div class="block-flow" style="flex:1;min-width:200px;">
+          <div class="block-box input" id="bb-input">Input x</div>
+          <div style="display:flex;width:100%;justify-content:center;position:relative;margin:0;">
+            <div class="block-down"></div>
+            <div style="position:absolute;right:calc(50% - 95px);top:0;bottom:0;width:20px;border-top:2px solid #94a3b8;border-right:2px solid #94a3b8;border-radius:0 4px 0 0;"></div>
+          </div>
+          <div class="block-box norm" id="bb-norm1">RMSNorm</div>
+          <div class="block-down"></div>
+          <div class="block-box attn" id="bb-attn">GQA + RoPE</div>
+          <div style="display:flex;width:100%;justify-content:center;position:relative;margin:0;">
+            <div class="block-down"></div>
+            <div style="position:absolute;right:calc(50% - 95px);top:0;bottom:0;width:20px;border-bottom:2px solid #94a3b8;border-right:2px solid #94a3b8;border-radius:0 0 4px 0;"></div>
+          </div>
+          <div class="block-box add" id="bb-add1" style="width:36px;height:36px;min-width:36px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:50%;">+</div>
+          <div class="block-down"></div>
+          <div class="block-box norm" id="bb-norm2">RMSNorm</div>
+          <div class="block-down"></div>
+          <div class="block-box ffn" id="bb-ffn">SwiGLU</div>
+          <div style="display:flex;width:100%;justify-content:center;position:relative;margin:0;">
+            <div class="block-down"></div>
+            <div style="position:absolute;right:calc(50% - 95px);top:0;bottom:0;width:20px;border-bottom:2px solid #94a3b8;border-right:2px solid #94a3b8;border-radius:0 0 4px 0;"></div>
+          </div>
+          <div class="block-box add" id="bb-add2" style="width:36px;height:36px;min-width:36px;padding:0;display:flex;align-items:center;justify-content:center;border-radius:50%;">+</div>
+          <div class="block-down"></div>
+          <div class="block-box output" id="bb-output">Output x'</div>
+        </div>
+        <div style="flex:1;min-width:180px;font-size:.83rem;color:#334155;line-height:1.8;padding-top:1rem;">
+          <div id="blockStepInfo" style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:.8rem;">
+            Click "Run Forward Pass" to step through each operation.
+            <br><br>
+            <strong>Key idea:</strong> the residual skip-connections (the + boxes) always add the <em>original</em> signal back. Even if a sublayer produces noisy gradients, the skip ensures the signal flows cleanly through.
+          </div>
+        </div>
+      </div>
+      <button class="play-btn" onclick="animateBlock()">▶ Run Forward Pass</button>
+      <button class="play-btn secondary" onclick="resetBlock()">↺ Reset</button>
+    </div>
+
+    <h3>Pre-norm vs post-norm</h3>
+    <p>The original "Attention is All You Need" Transformer used <em>post-norm</em>: apply normalisation <em>after</em> the residual add. This can produce large gradient magnitudes at early layers, requiring careful initialisation and learning-rate warmup.</p>
+    <p><strong>Pre-norm</strong> keeps the residual stream clean — the skip connection always carries the unnormalised signal, which stabilises training and allows deeper networks without gradient instability.</p>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python — TransformerBlock</span></div>
+      <pre><code><span class="kw">class</span> <span class="tp">TransformerBlock</span>(nn.Module):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, config):
+        <span class="fn">super</span>().__init__()
+        self.attn_norm = <span class="fn">RMSNorm</span>(config.n_embd)
+        self.attn      = <span class="fn">GQAttention</span>(config)
+        self.ffn_norm  = <span class="fn">RMSNorm</span>(config.n_embd)
+        self.ffn       = <span class="fn">SwiGLU</span>(config)
+
+    <span class="kw">def</span> <span class="fn">forward</span>(self, x, cos, sin):
+        x = x <span class="op">+</span> self.attn(self.attn_norm(x), cos, sin)   <span class="cm"># pre-norm + residual</span>
+        x = x <span class="op">+</span> self.ffn(self.ffn_norm(x))               <span class="cm"># pre-norm + residual</span>
+        <span class="kw">return</span> x</code></pre>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Block parameter breakdown</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;border-bottom:1px solid var(--border);">
+            <span style="font-size:.83rem;font-weight:600;">GQAttention</span>
+            <span class="tag tag-blue">~786K (24%)</span>
+          </div>
+          <div style="font-size:.77rem;color:var(--text-muted);padding:.3rem 0 0 .5rem;">
+            Q: 512×512 = 262K<br>
+            K+V: 512×256×2 = 262K<br>
+            O: 512×512 = 262K
+          </div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:.4rem 0;border-bottom:1px solid var(--border);">
+            <span style="font-size:.83rem;font-weight:600;">SwiGLU</span>
+            <span class="tag tag-purple">~2.4M (74%)</span>
+          </div>
+          <div style="font-size:.77rem;color:var(--text-muted);padding:.3rem 0 0 .5rem;">
+            gate: 512×1536 = 786K<br>
+            up:   512×1536 = 786K<br>
+            down: 1536×512 = 786K
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:.75rem;font-size:.8rem;color:var(--text-muted);">RMSNorm ×2: 512 × 2 = 1,024 params (negligible)</div>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 7: FULL MODEL ═══════════════════════════ -->
+  <section id="s7-model">
+    <div class="section-header">
+      <div class="section-number">7</div>
+      <h2>NanoLlama: Full Model</h2>
+    </div>
+
+    <p>The full model stacks 8 <code>TransformerBlock</code>s between a token embedding lookup and an output LM head. Three details make it a production-grade design:</p>
+
+    <div class="diagram-container">
+      <div class="diagram-title">NanoLlama Model Stack</div>
+      <div id="modelStack" style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:.5rem 0;">
+        <div class="stack-item emb"  style="opacity:0;transform:translateY(10px);width:340px;">Token Embedding &nbsp;<span class="stack-params">50,257 × 512 = 25.7M</span></div>
+        <div class="stack-arrow"></div>
+        <div class="stack-item drop" style="opacity:0;transform:translateY(10px);width:340px;">Dropout (p=0.1) &nbsp;<span class="stack-params">—</span></div>
+        <div class="stack-arrow"></div>
+        <div class="stack-item blk"  style="opacity:0;transform:translateY(10px);width:340px;">Block 1 &nbsp;<span class="stack-params">RMSNorm + GQA+RoPE + RMSNorm + SwiGLU</span></div>
+        <div class="stack-item blk"  style="opacity:0;transform:translateY(10px);width:340px;">Block 2 &nbsp;<span class="stack-params">...</span></div>
+        <div class="stack-item blk"  style="opacity:0;transform:translateY(10px);width:340px;font-style:italic;color:#9ca3af;">⋮ &nbsp;<span class="stack-params">×8 total</span></div>
+        <div class="stack-item blk"  style="opacity:0;transform:translateY(10px);width:340px;">Block 8 &nbsp;<span class="stack-params">...</span></div>
+        <div class="stack-arrow"></div>
+        <div class="stack-item norm" style="opacity:0;transform:translateY(10px);width:340px;">Final RMSNorm &nbsp;<span class="stack-params">512 params</span></div>
+        <div class="stack-arrow"></div>
+        <div class="stack-item head" style="opacity:0;transform:translateY(10px);width:340px;">LM Head &nbsp;<span class="stack-params">weight-tied with embedding</span></div>
+      </div>
+      <div style="width:340px;margin:0 auto;text-align:center;font-size:.72rem;color:#9d174d;font-style:italic;opacity:0;transition:opacity .4s .7s;" id="weightTieLabel">↑ head.weight = tok_emb.weight (no extra params)</div>
+      <button class="play-btn" onclick="animateModelStack()">▶ Build Model</button>
+    </div>
+
+    <h3>Weight initialisation</h3>
+    <p>All linear and embedding weights are initialised with <code>N(0, 0.02)</code> — the same scheme GPT-2 uses. No bias terms anywhere (<code>bias=False</code> in all linears), matching Llama convention.</p>
+
+    <h3>Autoregressive generation</h3>
+    <p>During inference, <code>generate()</code> samples one token at a time. Two controls shape the distribution:</p>
+
+    <ul>
+      <li><strong>Temperature T</strong>: divides logits by T before softmax. T → 0 = greedy (argmax); T → ∞ = uniform random.</li>
+      <li><strong>Top-k</strong>: zeroes out all logits except the k highest before sampling. Prevents sampling from the long tail of near-zero probability tokens.</li>
+    </ul>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python — NanoLlama (key methods)</span></div>
+      <pre><code><span class="kw">class</span> <span class="tp">NanoLlama</span>(nn.Module):
+    <span class="kw">def</span> <span class="fn">__init__</span>(self, config):
+        <span class="fn">super</span>().__init__()
+        self.tok_emb = nn.<span class="fn">Embedding</span>(config.vocab_size, config.n_embd)
+        self.drop    = nn.<span class="fn">Dropout</span>(config.dropout)
+        self.blocks  = nn.<span class="fn">ModuleList</span>([<span class="fn">TransformerBlock</span>(config)
+                                       <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(config.n_layer)])
+        self.norm = <span class="fn">RMSNorm</span>(config.n_embd)
+        self.head = nn.<span class="fn">Linear</span>(config.n_embd, config.vocab_size, bias=<span class="nm">False</span>)
+        self.head.weight = self.tok_emb.weight   <span class="cm"># ← weight tying (saves 25.7M params)</span>
+
+        <span class="cm"># RoPE tables as buffers — auto-move to device with .to(device)</span>
+        self.<span class="fn">register_buffer</span>(<span class="st">'rope_cos'</span>, ...)
+        self.<span class="fn">register_buffer</span>(<span class="st">'rope_sin'</span>, ...)
+        self.<span class="fn">apply</span>(self._init_weights)
+
+    <span class="kw">def</span> <span class="fn">forward</span>(self, idx, targets=<span class="nm">None</span>):
+        x   = self.drop(self.tok_emb(idx))
+        cos = self.rope_cos[:idx.shape[<span class="nm">1</span>]]
+        sin = self.rope_sin[:idx.shape[<span class="nm">1</span>]]
+        <span class="kw">for</span> block <span class="kw">in</span> self.blocks:
+            x = <span class="fn">block</span>(x, cos, sin)
+        logits = self.head(self.norm(x))
+        loss   = F.<span class="fn">cross_entropy</span>(logits.<span class="fn">view</span>(<span class="op">-</span><span class="nm">1</span>, logits.<span class="fn">size</span>(<span class="op">-</span><span class="nm">1</span>)),
+                                   targets.<span class="fn">view</span>(<span class="op">-</span><span class="nm">1</span>)) <span class="kw">if</span> targets <span class="kw">is not None</span> <span class="kw">else</span> <span class="nm">None</span>
+        <span class="kw">return</span> logits, loss
+
+    <span class="op">@</span>torch.no_grad()
+    <span class="kw">def</span> <span class="fn">generate</span>(self, idx, max_new_tokens=<span class="nm">200</span>, temperature=<span class="nm">0.8</span>, top_k=<span class="nm">50</span>):
+        self.<span class="fn">eval</span>()
+        <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(max_new_tokens):
+            idx_cond = idx[:, <span class="op">-</span>self.config.block_size:]
+            logits, _ = self(idx_cond)
+            logits    = logits[:, <span class="op">-</span><span class="nm">1</span>, :] <span class="op">/</span> temperature       <span class="cm"># temperature scaling</span>
+            <span class="kw">if</span> top_k:
+                v, _ = torch.<span class="fn">topk</span>(logits, top_k)
+                logits[logits <span class="op">&lt;</span> v[:, [<span class="op">-</span><span class="nm">1</span>]]] = <span class="fn">float</span>(<span class="st">'-inf'</span>)  <span class="cm"># zero out tail</span>
+            idx = torch.<span class="fn">cat</span>([idx, torch.<span class="fn">multinomial</span>(F.<span class="fn">softmax</span>(logits,<span class="op">-</span><span class="nm">1</span>), <span class="nm">1</span>)], dim=<span class="nm">1</span>)
+        <span class="kw">return</span> idx</code></pre>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 8: TRAINING RECIPE ═════════════════════ -->
+  <section id="s8-training">
+    <div class="section-header">
+      <div class="section-number">8</div>
+      <h2>Training Recipe</h2>
+    </div>
+
+    <h3>Hyperparameters</h3>
+    <table>
+      <thead><tr><th>Setting</th><th>Value</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Batch size</td><td>16 (2×T4) / 8 (1 GPU)</td><td>Fill GPU memory</td></tr>
+        <tr><td>Max steps</td><td>3,000</td><td>~15–25 min on Kaggle 2×T4</td></tr>
+        <tr><td>Max LR</td><td>3e-4</td><td>Standard for AdamW on transformers</td></tr>
+        <tr><td>Min LR</td><td>3e-5</td><td>10% of max; don't decay to zero</td></tr>
+        <tr><td>Warmup steps</td><td>200</td><td>Linear ramp prevents early instability</td></tr>
+        <tr><td>Weight decay</td><td>0.1</td><td>L2 regularisation on weights only</td></tr>
+        <tr><td>Grad clip</td><td>1.0</td><td>Prevents rare explosive gradient steps</td></tr>
+        <tr><td>Adam β₂</td><td>0.95</td><td>0.95 instead of 0.999 for noisier mini-batches</td></tr>
+      </tbody>
+    </table>
+
+    <h3>LR schedule: linear warmup → cosine decay</h3>
+    <div class="math-formula" style="font-size:.9rem;">
+      lr(t) = lr_max · t / t_warm &nbsp;&nbsp;&nbsp; if t &lt; t_warm<br><br>
+      lr(t) = lr_min + ½ (lr_max − lr_min)(1 + cos(π · r)) &nbsp;&nbsp;&nbsp; otherwise<br><br>
+      <small>r = (t − t_warm) / (t_max − t_warm)</small>
+    </div>
+
+    <div class="diagram-container">
+      <div class="diagram-title">LR Schedule Curve</div>
+      <canvas id="lrCanvas" width="560" height="180"></canvas>
+      <div style="display:flex;gap:1.5rem;margin-top:.5rem;font-size:.78rem;">
+        <span style="display:flex;align-items:center;gap:.3rem;"><span style="display:inline-block;width:16px;height:3px;background:#f59e0b;"></span> Warmup (steps 0–200)</span>
+        <span style="display:flex;align-items:center;gap:.3rem;"><span style="display:inline-block;width:16px;height:3px;background:#3b82f6;"></span> Cosine decay (steps 200–3000)</span>
+      </div>
+      <button class="play-btn" onclick="drawLRCurve()">▶ Draw Schedule</button>
+    </div>
+
+    <h3>Automatic Mixed Precision (AMP)</h3>
+    <p>AMP runs the forward and backward passes in <strong>FP16</strong> (faster matrix multiplies, half the memory) while keeping a master copy of weights in <strong>FP32</strong> for the optimizer update. <code>GradScaler</code> multiplies the loss by a large constant before backward, then divides the gradients back — this prevents FP16 underflow in small gradients.</p>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python — Optimizer + LR + AMP</span></div>
+      <pre><code>optimizer = torch.optim.<span class="fn">AdamW</span>(
+    model.parameters(),
+    lr=max_lr, betas=(<span class="nm">0.9</span>, <span class="nm">0.95</span>), weight_decay=<span class="nm">0.1</span>
+)
+
+<span class="kw">def</span> <span class="fn">get_lr</span>(step):
+    <span class="kw">if</span> step <span class="op">&lt;</span> warmup_steps:
+        <span class="kw">return</span> max_lr <span class="op">*</span> (step <span class="op">+</span> <span class="nm">1</span>) <span class="op">/</span> warmup_steps
+    ratio = (step <span class="op">-</span> warmup_steps) <span class="op">/</span> <span class="fn">max</span>(<span class="nm">1</span>, max_steps <span class="op">-</span> warmup_steps)
+    <span class="kw">return</span> min_lr <span class="op">+</span> <span class="nm">0.5</span> <span class="op">*</span> (max_lr <span class="op">-</span> min_lr) <span class="op">*</span> (<span class="nm">1.0</span> <span class="op">+</span> math.<span class="fn">cos</span>(math.pi <span class="op">*</span> ratio))
+
+scaler = torch.amp.<span class="fn">GradScaler</span>(<span class="st">'cuda'</span>, enabled=use_amp)</code></pre>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 9: EVALUATION ═══════════════════════════ -->
+  <section id="s9-eval">
+    <div class="section-header">
+      <div class="section-number">9</div>
+      <h2>Evaluation</h2>
+    </div>
+
+    <p>We estimate loss on <code>eval_iters=20</code> batches from each split rather than the full dataset — fast enough to run every 200 training steps without dominating wall-clock time.</p>
+
+    <h3>Perplexity</h3>
+    <p><strong>Perplexity (PPL) = e<sup>loss</sup></strong>. It measures the average branching factor of the model: how many equally-likely token choices the model considers at each position.</p>
+
+    <table>
+      <thead><tr><th>Model state</th><th>Val Loss</th><th>PPL</th><th>Interpretation</th></tr></thead>
+      <tbody>
+        <tr><td>Random (untrained)</td><td>~10.8</td><td>~50,257</td><td>Guessing uniformly from vocab</td></tr>
+        <tr><td>After 200 steps</td><td>~6.5</td><td>~665</td><td>Picks up language structure</td></tr>
+        <tr><td>After 3,000 steps</td><td>~4.5</td><td>~90</td><td>Reasonable word-level predictions</td></tr>
+        <tr><td>GPT-2 (117M)</td><td>—</td><td>~35</td><td>Fully trained, 2× parameters</td></tr>
+      </tbody>
+    </table>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python — estimate_loss()</span></div>
+      <pre><code><span class="op">@</span>torch.no_grad()
+<span class="kw">def</span> <span class="fn">estimate_loss</span>():
+    model.<span class="fn">eval</span>()   <span class="cm"># disables dropout for stable estimate</span>
+    out = {}
+    <span class="kw">for</span> split_name, loader <span class="kw">in</span> [(<span class="st">'train'</span>, train_loader), (<span class="st">'val'</span>, val_loader)]:
+        losses    = []
+        data_iter = <span class="fn">iter</span>(loader)
+        <span class="kw">for</span> _ <span class="kw">in</span> <span class="fn">range</span>(eval_iters):
+            xb, yb = <span class="fn">next</span>(data_iter)
+            <span class="kw">with</span> <span class="fn">autocast_ctx</span>():
+                _, loss = <span class="fn">model</span>(xb.<span class="fn">to</span>(device), yb.<span class="fn">to</span>(device))
+            losses.<span class="fn">append</span>(loss.<span class="fn">mean</span>().<span class="fn">item</span>())
+        out[split_name] = <span class="fn">sum</span>(losses) <span class="op">/</span> <span class="fn">len</span>(losses)
+    model.<span class="fn">train</span>()   <span class="cm"># re-enable dropout</span>
+    <span class="kw">return</span> out</code></pre>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">ℹ️</span>
+      <div><code>model.eval()</code> disables dropout during evaluation — otherwise each forward pass would produce slightly different loss values, making your metrics noisy. <code>model.train()</code> re-enables it afterwards. Using <code>@torch.no_grad()</code> skips gradient computation, halving the memory cost and speeding up the eval pass.</div>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 10: TRAINING LOOP ════════════════════════ -->
+  <section id="s10-loop">
+    <div class="section-header">
+      <div class="section-number">10</div>
+      <h2>Training Loop</h2>
+    </div>
+
+    <p>The training loop follows the standard recipe for transformers. Each step has 6 operations in a specific order — the order matters because <code>GradScaler</code> modifies gradients between backward and the optimizer step.</p>
+
+    <div class="card">
+      <div class="card-title">6-Step Inner Loop</div>
+      <ol style="margin:0;padding-left:1.4rem;">
+        <li><strong>Set LR</strong> — update all param groups to <code>get_lr(step)</code></li>
+        <li><strong>Forward pass</strong> — under AMP autocast (FP16)</li>
+        <li><strong>Scale + backward</strong> — <code>scaler.scale(loss).backward()</code></li>
+        <li><strong>Unscale + clip</strong> — <code>scaler.unscale_(optimizer)</code> then <code>clip_grad_norm_(..., 1.0)</code></li>
+        <li><strong>Optimizer step</strong> — <code>scaler.step(optimizer)</code></li>
+        <li><strong>Scaler update</strong> — adjusts scale factor for next step</li>
+      </ol>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python — Training Loop</span></div>
+      <pre><code><span class="kw">while</span> step <span class="op">&lt;</span> max_steps:
+    <span class="kw">for</span> xb, yb <span class="kw">in</span> train_loader:
+        <span class="kw">if</span> step <span class="op">&gt;=</span> max_steps: <span class="kw">break</span>
+
+        <span class="cm"># 1. Set LR for this step</span>
+        lr = <span class="fn">get_lr</span>(step)
+        <span class="kw">for</span> pg <span class="kw">in</span> optimizer.param_groups: pg[<span class="st">'lr'</span>] = lr
+
+        xb, yb = xb.<span class="fn">to</span>(device), yb.<span class="fn">to</span>(device)
+        optimizer.<span class="fn">zero_grad</span>(set_to_none=<span class="nm">True</span>)
+
+        <span class="cm"># 2. Forward under AMP</span>
+        <span class="kw">with</span> <span class="fn">autocast_ctx</span>():
+            _, loss = <span class="fn">model</span>(xb, yb)
+
+        <span class="cm"># 3. Scale loss + backward</span>
+        scaler.<span class="fn">scale</span>(loss.<span class="fn">mean</span>()).<span class="fn">backward</span>()
+
+        <span class="cm"># 4. Unscale + clip gradients</span>
+        scaler.<span class="fn">unscale_</span>(optimizer)
+        torch.nn.utils.<span class="fn">clip_grad_norm_</span>(model.parameters(), grad_clip)
+
+        <span class="cm"># 5+6. Optimizer step + scaler update</span>
+        scaler.<span class="fn">step</span>(optimizer)
+        scaler.<span class="fn">update</span>()
+
+        <span class="kw">if</span> step <span class="op">%</span> eval_interval <span class="op">==</span> <span class="nm">0</span>:
+            losses = <span class="fn">estimate_loss</span>()
+            ppl    = math.<span class="fn">exp</span>(<span class="fn">min</span>(losses[<span class="st">'val'</span>], <span class="nm">20</span>))
+            <span class="fn">print</span>(<span class="st">f'step {step} | val {losses["val"]:.4f} | ppl {ppl:.1f}'</span>)
+        step <span class="op">+=</span> <span class="nm">1</span></code></pre>
+    </div>
+
+    <h3>Gradient clipping</h3>
+    <p><code>clip_grad_norm_(model.parameters(), 1.0)</code> computes the global L2 norm of all gradients and, if it exceeds 1.0, rescales the entire gradient vector. This prevents rare explosive gradient steps — common when a training batch happens to produce an unusually large loss signal.</p>
+
+    <div class="diagram-container">
+      <div class="diagram-title">Simulated Training Progress</div>
+      <canvas id="trainCanvas" width="560" height="200"></canvas>
+      <div style="display:flex;gap:1.5rem;margin-top:.5rem;font-size:.78rem;">
+        <span style="display:flex;align-items:center;gap:.3rem;"><span style="display:inline-block;width:16px;height:3px;background:#3b82f6;"></span> Train loss</span>
+        <span style="display:flex;align-items:center;gap:.3rem;"><span style="display:inline-block;width:16px;height:3px;background:#10b981;"></span> Val loss</span>
+      </div>
+      <button class="play-btn" onclick="animateTraining()">▶ Play Training</button>
+      <button class="play-btn secondary" onclick="resetTraining()">↺ Reset</button>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 11: CHECKPOINT ══════════════════════════ -->
+  <section id="s11-ckpt">
+    <div class="section-header">
+      <div class="section-number">11</div>
+      <h2>Save Checkpoint</h2>
+    </div>
+
+    <p>We save the <em>unwrapped</em> model (<code>raw_model.state_dict()</code>, not the <code>DataParallel</code> wrapper) so the checkpoint loads cleanly on any number of GPUs, including single-GPU setups.</p>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python — Save &amp; Load</span></div>
+      <pre><code>torch.<span class="fn">save</span>({
+    <span class="st">'model_state_dict'</span>: raw_model.state_dict(),
+    <span class="st">'config'</span>          : config,
+    <span class="st">'best_val_loss'</span>   : best_val_loss,
+    <span class="st">'step'</span>            : step,
+}, <span class="st">'/kaggle/working/nanollama_v3_51m.pt'</span>)
+
+<span class="cm"># Load and verify</span>
+ckpt = torch.<span class="fn">load</span>(<span class="st">'nanollama_v3_51m.pt'</span>, map_location=<span class="st">'cpu'</span>)
+model.<span class="fn">load_state_dict</span>(ckpt[<span class="st">'model_state_dict'</span>])
+<span class="cm"># Keys: model_state_dict, config, best_val_loss, step</span></code></pre>
+    </div>
+
+    <div class="callout tip">
+      <span class="callout-icon">💡</span>
+      <div>Always save <code>config</code> alongside <code>state_dict</code>. The config tells you exactly how to re-instantiate the model architecture before calling <code>load_state_dict</code>. Without it, someone loading the checkpoint 6 months later has to reverse-engineer the architecture from the weight shapes.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Checkpoint contents</div>
+      <table style="margin:0;">
+        <thead><tr><th>Key</th><th>Type</th><th>Size</th></tr></thead>
+        <tbody>
+          <tr><td><code>model_state_dict</code></td><td>OrderedDict</td><td>~200 MB (FP32)</td></tr>
+          <tr><td><code>config</code></td><td>LlamaConfig</td><td>~1 KB</td></tr>
+          <tr><td><code>best_val_loss</code></td><td>float</td><td>—</td></tr>
+          <tr><td><code>step</code></td><td>int</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══ SECTION 12: TEXT GENERATION ════════════════════ -->
+  <section id="s12-gen">
+    <div class="section-header">
+      <div class="section-number">12</div>
+      <h2>Text Generation</h2>
+    </div>
+
+    <p>After training, <code>generate()</code> samples tokens autoregressively. Two sampling hyperparameters control the quality-diversity tradeoff:</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin:1rem 0;">
+      <div class="card" style="margin-bottom:0;text-align:center;">
+        <div style="font-size:1.6rem;font-weight:800;color:#1d4ed8;">T &lt; 1</div>
+        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.3rem;">Sharp distribution<br>Predictable, repetitive</div>
+      </div>
+      <div class="card" style="margin-bottom:0;text-align:center;border-color:#86efac;">
+        <div style="font-size:1.6rem;font-weight:800;color:#065f46;">T = 0.8</div>
+        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.3rem;">Balanced<br>Creative but coherent</div>
+      </div>
+      <div class="card" style="margin-bottom:0;text-align:center;border-color:#fcd34d;">
+        <div style="font-size:1.6rem;font-weight:800;color:#92400e;">T &gt; 1</div>
+        <div style="font-size:.8rem;color:var(--text-muted);margin-top:.3rem;">Flat distribution<br>Surprising, sometimes incoherent</div>
+      </div>
+    </div>
+
+    <div class="diagram-container">
+      <div class="diagram-title">Temperature Effect on Token Distribution</div>
+      <div class="temp-controls">
+        <label for="tempSlider">Temperature:</label>
+        <input type="range" id="tempSlider" min="20" max="200" value="80" step="5" oninput="updateTempDisplay(this.value)">
+        <span class="temp-display" id="tempDisplay">0.80</span>
+        <button class="play-btn" onclick="applyTemperature()" style="margin-top:0;">Apply</button>
+      </div>
+      <div class="temp-bars" id="tempBars"></div>
+      <div style="font-size:.75rem;color:var(--text-muted);margin-top:.4rem;">Low temperature concentrates probability on top tokens. High temperature spreads it across the vocabulary.</div>
+    </div>
+
+    <div class="code-block">
+      <div class="code-header"><div class="code-dots"><div class="code-dot"></div><div class="code-dot"></div><div class="code-dot"></div></div><span class="code-lang">Python — generation examples</span></div>
+      <pre><code>prompts = [
+    <span class="st">'The history of artificial intelligence began'</span>,
+    <span class="st">'The scientist carefully examined the results and'</span>,
+    <span class="st">'Once upon a time in a kingdom far away,'</span>,
+]
+
+<span class="kw">for</span> prompt <span class="kw">in</span> prompts:
+    input_ids  = tokenizer.<span class="fn">encode</span>(prompt)
+    x          = torch.<span class="fn">tensor</span>([input_ids]).<span class="fn">to</span>(device)
+    output_ids = raw_model.<span class="fn">generate</span>(x, max_new_tokens=<span class="nm">150</span>,
+                                        temperature=<span class="nm">0.8</span>, top_k=<span class="nm">50</span>)
+    <span class="fn">print</span>(tokenizer.<span class="fn">decode</span>(output_ids[<span class="nm">0</span>].<span class="fn">tolist</span>()))</code></pre>
+    </div>
+
+    <div class="callout info">
+      <span class="callout-icon">ℹ️</span>
+      <div>After only 3,000 steps on WikiText-103, the model won't produce perfect prose — but it will have learned basic grammar, word associations, and common phrase patterns. You can observe the improvement by comparing generation quality at step 0 (random noise) vs step 3,000 (rough but structured text).</div>
+    </div>
+  </section>
+
+  <!-- ══ SUMMARY ══════════════════════════════════════════ -->
+  <section id="s-summary">
+    <div class="section-header">
+      <div class="section-number" style="background:#10b981;">✓</div>
+      <h2>Day 2 Summary</h2>
+    </div>
+
+    <p>You've assembled a 51M-parameter model that mirrors the architectural decisions in production LLMs like Llama 2/3 and Mistral. Each component replaces a GPT-2 baseline with something more principled:</p>
+
+    <table>
+      <thead><tr><th>Component</th><th>Class</th><th>Key Insight</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="component-name">Normalisation</td>
+          <td class="class-name"><code>RMSNorm</code></td>
+          <td>Drop mean-centering; no bias β; ~10% faster; same quality</td>
+        </tr>
+        <tr>
+          <td class="component-name">Position</td>
+          <td class="class-name"><code>apply_rotary_emb</code></td>
+          <td>Rotation encodes relative position in Q·K dot product; zero extra params</td>
+        </tr>
+        <tr>
+          <td class="component-name">Attention</td>
+          <td class="class-name"><code>GQAttention</code></td>
+          <td>GQA halves KV-cache memory; RoPE replaces learned position tables</td>
+        </tr>
+        <tr>
+          <td class="component-name">Feed-forward</td>
+          <td class="class-name"><code>SwiGLU</code></td>
+          <td>Gate controls information flow; better loss-per-param than GELU</td>
+        </tr>
+        <tr>
+          <td class="component-name">Block</td>
+          <td class="class-name"><code>TransformerBlock</code></td>
+          <td>Pre-norm + dual residuals for stable deep training</td>
+        </tr>
+        <tr>
+          <td class="component-name">Full Model</td>
+          <td class="class-name"><code>NanoLlama</code></td>
+          <td>Weight tying saves 25.7M params; precomputed RoPE buffers</td>
+        </tr>
+        <tr>
+          <td class="component-name">Training</td>
+          <td class="class-name">AdamW + AMP</td>
+          <td>Mixed precision, cosine LR schedule, gradient clipping</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="next-day">
+      <h3>Day 3 Preview: Fine-tuning Ops</h3>
+      <p>Tomorrow you apply <strong>LoRA</strong> (Low-Rank Adaptation) to fine-tune a Gemma 2B model on a downstream task. Instead of updating all 2 billion parameters, LoRA injects small trainable rank-decomposition matrices into attention layers:</p>
+      <ul>
+        <li><strong>LoRA:</strong> W' = W + BA where B ∈ ℝ<sup>d×r</sup>, A ∈ ℝ<sup>r×k</sup>, r ≪ d</li>
+        <li>Fine-tune with 100× fewer parameters than full fine-tuning</li>
+        <li>Base model weights stay frozen — no catastrophic forgetting</li>
+        <li>Multiple LoRA adapters can be swapped onto the same base model</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ── SIDEBAR COLLAPSE ─────────────────────────────────────
+(function() {
+  const sidebar = document.getElementById('sidebar');
+  const btn     = document.getElementById('sidebarToggle');
+  const KEY     = 'sidebar-collapsed-day2';
+
+  function setCollapsed(collapsed) {
+    sidebar.classList.toggle('collapsed', collapsed);
+    localStorage.setItem(KEY, collapsed ? '1' : '');
+  }
+
+  btn.addEventListener('click', () => setCollapsed(!sidebar.classList.contains('collapsed')));
+  if (localStorage.getItem(KEY)) setCollapsed(true);
+})();
+
+// ── SCROLLSPY ────────────────────────────────────────────
+(function() {
+  const links = Array.from(document.querySelectorAll('.sidebar a[href^="#"]'));
+  const obs   = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const a = links.find(l => l.getAttribute('href') === '#' + e.target.id);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { threshold: 0.15, rootMargin: '-10% 0px -70% 0px' });
+
+  document.querySelectorAll('section[id]').forEach(s => obs.observe(s));
+})();
+
+// ── ARCH PIPELINE ANIMATION ──────────────────────────────
+function animateArch() {
+  const items = document.querySelectorAll('#archPipeline .stack-item, #archPipeline .stack-arrow');
+  const detail = document.getElementById('archBlockDetail');
+  items.forEach((el, i) => {
+    setTimeout(() => {
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+    }, i * 120);
+  });
+  setTimeout(() => {
+    if (detail) { detail.style.opacity = '1'; }
+  }, items.length * 120 + 100);
+}
+
+// ── RMSNORM STEP ANIMATION ───────────────────────────────
+let normTimer = null;
+function animateNorm() {
+  const lnSteps = ['ln1','ln2','ln3','ln4','ln5'];
+  const rnSteps = ['rn1','rn2','rn3'];
+  let step = 0;
+  const all = [...lnSteps, ...rnSteps].map(id => document.getElementById(id)).filter(Boolean);
+  all.forEach(el => el.classList.remove('highlighted'));
+
+  function advance() {
+    if (step > 0) {
+      const prevLN = lnSteps[step-1] && document.getElementById(lnSteps[step-1]);
+      if (prevLN) prevLN.classList.remove('highlighted');
+    }
+    if (step < lnSteps.length) {
+      const el = document.getElementById(lnSteps[step]);
+      if (el) el.classList.add('highlighted');
+    }
+    const rnIdx = step - 1;
+    if (rnIdx >= 0 && rnIdx < rnSteps.length) {
+      if (rnIdx > 0) {
+        const prev = document.getElementById(rnSteps[rnIdx-1]);
+        if (prev) prev.classList.remove('highlighted');
+      }
+      const el = document.getElementById(rnSteps[rnIdx]);
+      if (el) el.classList.add('highlighted');
+    }
+    step++;
+    if (step <= Math.max(lnSteps.length, rnSteps.length) + 1) {
+      normTimer = setTimeout(advance, 600);
+    }
+  }
+  advance();
+}
+
+function resetNorm() {
+  if (normTimer) clearTimeout(normTimer);
+  ['ln1','ln2','ln3','ln4','ln5','rn1','rn2','rn3'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('highlighted');
+  });
+}
+
+// ── ROPE CANVAS ANIMATION ────────────────────────────────
+let ropeAnimId = null;
+let ropeAngle  = 0;
+
+function drawRoPEFrame(angle, positions) {
+  const canvas = document.getElementById('ropeCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const cx = 90, cy = H / 2, r = 65;
+
+  // Draw circle
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Draw axes
+  ctx.strokeStyle = '#cbd5e1';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx - r - 8, cy); ctx.lineTo(cx + r + 8, cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx, cy - r - 8); ctx.lineTo(cx, cy + r + 8); ctx.stroke();
+
+  // Draw position vectors
+  const colors = ['#3b82f6','#10b981','#f59e0b','#ef4444'];
+  const labels = ['pos 0','pos 1','pos 2','pos 3'];
+  positions.forEach((theta, i) => {
+    const vx = cx + r * Math.cos(theta);
+    const vy = cy - r * Math.sin(theta);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(vx, vy);
+    ctx.strokeStyle = colors[i];
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(vx, vy, 5, 0, Math.PI * 2);
+    ctx.fillStyle = colors[i];
+    ctx.fill();
+  });
+
+  // Legend
+  positions.forEach((theta, i) => {
+    const x = 195, y = 30 + i * 42;
+    ctx.fillStyle = colors[i];
+    ctx.fillRect(x, y, 14, 14);
+    ctx.fillStyle = '#334155';
+    ctx.font = '12px sans-serif';
+    ctx.fillText(labels[i], x + 18, y + 11);
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '11px sans-serif';
+    ctx.fillText(`θ = ${(theta * 180 / Math.PI).toFixed(0)}°`, x + 18, y + 25);
+  });
+}
+
+function animateRoPE() {
+  if (ropeAnimId) cancelAnimationFrame(ropeAnimId);
+  let frame = 0;
+  const totalFrames = 90;
+  const baseAngle = Math.PI / 6;
+
+  function step() {
+    const t = frame / totalFrames;
+    const positions = [0, 1, 2, 3].map(i => i * baseAngle * Math.min(t * 1.5, 1));
+    drawRoPEFrame(0, positions);
+    frame++;
+    if (frame <= totalFrames) {
+      ropeAnimId = requestAnimationFrame(step);
+    }
+  }
+  step();
+}
+
+function resetRoPE() {
+  if (ropeAnimId) cancelAnimationFrame(ropeAnimId);
+  drawRoPEFrame(0, [0, 0, 0, 0]);
+}
+
+// ── SWIGLU ANIMATION ─────────────────────────────────────
+let swigluTimer = null;
+const swigluSteps = ['fg-input','fg-gate','fg-silu','fg-up','fg-down','fg-out'];
+
+function animateSwiGLU() {
+  resetSwiGLU();
+  let i = 0;
+  function next() {
+    if (i < swigluSteps.length) {
+      document.getElementById(swigluSteps[i])?.classList.add('active');
+      i++;
+      swigluTimer = setTimeout(next, 500);
+    }
+  }
+  next();
+}
+
+function resetSwiGLU() {
+  if (swigluTimer) clearTimeout(swigluTimer);
+  swigluSteps.forEach(id => document.getElementById(id)?.classList.remove('active'));
+}
+
+// ── BLOCK ANIMATION ──────────────────────────────────────
+const blockSteps = [
+  { id: 'bb-input',  msg: 'Input tensor x with shape (B, T, 512) enters the block.' },
+  { id: 'bb-norm1',  msg: 'RMSNorm scales x to unit RMS. The original x is saved for the residual.' },
+  { id: 'bb-attn',   msg: 'GQA computes attention with RoPE-encoded Q and K. Output shape: (B, T, 512).' },
+  { id: 'bb-add1',   msg: 'Residual add: x = x_original + attn_output. The skip connection prevents vanishing gradients.' },
+  { id: 'bb-norm2',  msg: 'Second RMSNorm normalises x\' before the feed-forward sublayer.' },
+  { id: 'bb-ffn',    msg: 'SwiGLU expands to 1536 dims, applies gating, then projects back to 512.' },
+  { id: 'bb-add2',   msg: 'Second residual add. Output has the same shape as input — ready for the next block.' },
+  { id: 'bb-output', msg: 'Output x\' passed to the next TransformerBlock (or to Final RMSNorm).' },
+];
+
+let blockTimer = null, blockStep = 0;
+
+function animateBlock() {
+  resetBlock();
+  function next() {
+    if (blockStep < blockSteps.length) {
+      const s = blockSteps[blockStep];
+      document.getElementById(s.id)?.classList.add('active');
+      const info = document.getElementById('blockStepInfo');
+      if (info) info.innerHTML = `<strong>Step ${blockStep+1}/${blockSteps.length}:</strong> ${s.msg}`;
+      blockStep++;
+      blockTimer = setTimeout(next, 900);
+    }
+  }
+  next();
+}
+
+function resetBlock() {
+  if (blockTimer) clearTimeout(blockTimer);
+  blockStep = 0;
+  blockSteps.forEach(s => document.getElementById(s.id)?.classList.remove('active'));
+  const info = document.getElementById('blockStepInfo');
+  if (info) info.innerHTML = 'Click "Run Forward Pass" to step through each operation.';
+}
+
+// ── MODEL STACK ANIMATION ────────────────────────────────
+function animateModelStack() {
+  const items = document.querySelectorAll('#modelStack .stack-item, #modelStack .stack-arrow');
+  items.forEach((el, i) => {
+    setTimeout(() => {
+      el.style.opacity = '1';
+      el.style.transform = 'translateY(0)';
+    }, i * 130);
+  });
+  const tie = document.getElementById('weightTieLabel');
+  if (tie) setTimeout(() => { tie.style.opacity = '1'; }, items.length * 130 + 200);
+}
+
+// ── LR SCHEDULE CANVAS ───────────────────────────────────
+function drawLRCurve() {
+  const canvas = document.getElementById('lrCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const pad = { top: 20, right: 20, bottom: 35, left: 55 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top  - pad.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#f1f5f9';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (i / 4) * plotH;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+  }
+
+  // Axes
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top);
+  ctx.lineTo(pad.left, pad.top + plotH);
+  ctx.lineTo(pad.left + plotW, pad.top + plotH);
+  ctx.stroke();
+
+  // Labels
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'right';
+  const maxLR = 3e-4, minLR = 3e-5;
+  [maxLR, (maxLR+minLR)/2, minLR].forEach((v, i) => {
+    const y = pad.top + (i / 2) * plotH;
+    ctx.fillText(v.toExponential(0), pad.left - 6, y + 4);
+  });
+  ctx.textAlign = 'center';
+  [0, 500, 1000, 1500, 2000, 2500, 3000].forEach(step => {
+    const x = pad.left + (step / 3000) * plotW;
+    ctx.fillText(step, x, H - 5);
+  });
+
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Training step', pad.left + plotW / 2, H - 0);
+
+  // Helper
+  function getLR(step) {
+    if (step < 200) return maxLR * (step + 1) / 200;
+    const ratio = (step - 200) / (3000 - 200);
+    return minLR + 0.5 * (maxLR - minLR) * (1 + Math.cos(Math.PI * ratio));
+  }
+
+  function stepToX(s) { return pad.left + (s / 3000) * plotW; }
+  function lrToY(lr)   { return pad.top + plotH - ((lr - minLR) / (maxLR - minLR)) * plotH; }
+
+  const totalPoints = 300;
+  let drawn = 0;
+
+  function drawFrame() {
+    const batchEnd = Math.min(drawn + 12, totalPoints);
+    for (; drawn < batchEnd; drawn++) {
+      const s0 = (drawn / totalPoints) * 3000;
+      const s1 = ((drawn + 1) / totalPoints) * 3000;
+      const color = s0 < 200 ? '#f59e0b' : '#3b82f6';
+      ctx.beginPath();
+      ctx.moveTo(stepToX(s0), lrToY(getLR(s0)));
+      ctx.lineTo(stepToX(s1), lrToY(getLR(s1)));
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+    }
+    if (drawn < totalPoints) requestAnimationFrame(drawFrame);
+  }
+  drawFrame();
+}
+
+// ── TRAINING LOSS ANIMATION ──────────────────────────────
+let trainAnimId = null;
+
+function animateTraining() {
+  const canvas = document.getElementById('trainCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const pad = { top: 20, right: 20, bottom: 35, left: 50 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top  - pad.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid + axes
+  ctx.strokeStyle = '#f1f5f9'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (i / 4) * plotH;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+  }
+  ctx.strokeStyle = '#94a3b8'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(pad.left, pad.top); ctx.lineTo(pad.left, pad.top + plotH);
+  ctx.lineTo(pad.left + plotW, pad.top + plotH); ctx.stroke();
+
+  // Y axis labels (loss)
+  ctx.fillStyle = '#64748b'; ctx.font = '11px sans-serif'; ctx.textAlign = 'right';
+  [10, 8, 6, 4].forEach((v, i) => {
+    const y = pad.top + (i / 3) * plotH;
+    ctx.fillText(v.toFixed(0), pad.left - 6, y + 4);
+  });
+  ctx.textAlign = 'center';
+  [0, 1000, 2000, 3000].forEach(s => {
+    ctx.fillText(s, pad.left + (s/3000)*plotW, H - 5);
+  });
+
+  function lossToY(l) { return pad.top + plotH - ((l - 3.5) / 7) * plotH; }
+  function stepToX(s) { return pad.left + (s/3000)*plotW; }
+
+  // Seeded noise for stable curve
+  function noise(seed) {
+    const x = Math.sin(seed * 9301 + 49297) * 233280;
+    return x - Math.floor(x);
+  }
+
+  const totalPoints = 150;
+  let drawn = 0;
+
+  function drawFrame() {
+    const batchEnd = Math.min(drawn + 4, totalPoints);
+    for (; drawn < batchEnd; drawn++) {
+      const t0 = drawn / totalPoints;
+      const t1 = (drawn + 1) / totalPoints;
+      const s0 = t0 * 3000, s1 = t1 * 3000;
+
+      // train loss: fast drop with noise
+      const trainBase = 10.5 * Math.exp(-t0 * 2.8) + 4.0;
+      const trainNext = 10.5 * Math.exp(-t1 * 2.8) + 4.0;
+      const tn0 = trainBase + (noise(drawn * 2) - 0.5) * 0.6;
+      const tn1 = trainNext + (noise(drawn * 2 + 1) - 0.5) * 0.6;
+
+      ctx.beginPath();
+      ctx.moveTo(stepToX(s0), lossToY(tn0));
+      ctx.lineTo(stepToX(s1), lossToY(tn1));
+      ctx.strokeStyle = '#3b82f6'; ctx.lineWidth = 2; ctx.stroke();
+
+      // val loss: smoother
+      const valBase = 10.8 * Math.exp(-t0 * 2.4) + 4.3;
+      const valNext = 10.8 * Math.exp(-t1 * 2.4) + 4.3;
+      const vn0 = valBase + (noise(drawn * 3) - 0.5) * 0.25;
+      const vn1 = valNext + (noise(drawn * 3 + 1) - 0.5) * 0.25;
+
+      ctx.beginPath();
+      ctx.moveTo(stepToX(s0), lossToY(vn0));
+      ctx.lineTo(stepToX(s1), lossToY(vn1));
+      ctx.strokeStyle = '#10b981'; ctx.lineWidth = 2; ctx.stroke();
+    }
+    if (drawn < totalPoints) trainAnimId = requestAnimationFrame(drawFrame);
+  }
+  if (trainAnimId) cancelAnimationFrame(trainAnimId);
+  drawFrame();
+}
+
+function resetTraining() {
+  if (trainAnimId) cancelAnimationFrame(trainAnimId);
+  const canvas = document.getElementById('trainCanvas');
+  if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// ── TEMPERATURE DIAGRAM ──────────────────────────────────
+const BASE_LOGITS = [4.2, 3.1, 2.8, 2.0, 1.5, 0.9, 0.4, 0.1];
+const TOKEN_NAMES = ['"the"', '"a"', '"an"', '"this"', '"one"', '"some"', '"any"', '"that"'];
+
+function softmax(logits) {
+  const m = Math.max(...logits);
+  const exps = logits.map(l => Math.exp(l - m));
+  const sum  = exps.reduce((a, b) => a + b, 0);
+  return exps.map(e => e / sum);
+}
+
+function buildTempBars() {
+  const container = document.getElementById('tempBars');
+  if (!container) return;
+  container.innerHTML = TOKEN_NAMES.map((name, i) => `
+    <div class="temp-bar-row">
+      <span class="temp-token">${name}</span>
+      <div class="temp-bar-bg"><div class="temp-bar-fill" id="bar-${i}" style="width:0%"></div></div>
+      <span class="temp-val" id="barval-${i}">0%</span>
+    </div>`).join('');
+}
+
+function applyTemperature() {
+  const T = parseInt(document.getElementById('tempSlider').value) / 100;
+  const scaled = BASE_LOGITS.map(l => l / T);
+  const probs  = softmax(scaled);
+  probs.forEach((p, i) => {
+    const bar = document.getElementById('bar-' + i);
+    const val = document.getElementById('barval-' + i);
+    if (bar) bar.style.width = (p * 100).toFixed(1) + '%';
+    if (val) val.textContent = (p * 100).toFixed(1) + '%';
+  });
+}
+
+function updateTempDisplay(val) {
+  const T = parseInt(val) / 100;
+  const el = document.getElementById('tempDisplay');
+  if (el) el.textContent = T.toFixed(2);
+}
+
+// ── INIT ─────────────────────────────────────────────────
+window.addEventListener('load', function() {
+  buildTempBars();
+  applyTemperature();
+  drawRoPEFrame(0, [0, Math.PI/6, Math.PI/3, Math.PI/2]);
+});
+</script>
+</body>
+</html>
