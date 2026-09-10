@@ -1,0 +1,1186 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 4: RAG &amp; Production Inference &mdash; LLMOps Workshop</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --sidebar-bg: #1e293b;
+      --sidebar-text: #cbd5e1;
+      --accent: #3b82f6;
+      --accent-light: #dbeafe;
+      --accent-dark: #1d4ed8;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --code-bg: #1e293b;
+      --code-text: #e2e8f0;
+      --green: #10b981;
+      --purple: #8b5cf6;
+      --orange: #f59e0b;
+      --teal: #14b8a6;
+      --radius: 12px;
+      --shadow: 0 1px 3px 0 rgb(0 0 0/.1),0 1px 2px -1px rgb(0 0 0/.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0/.1),0 4px 6px -4px rgb(0 0 0/.1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      min-height: 100vh;
+      line-height: 1.65;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 240px; min-width: 240px;
+      background: var(--sidebar-bg); color: var(--sidebar-text);
+      position: sticky; top: 0; height: 100vh;
+      overflow-y: auto; overflow-x: hidden;
+      padding: 1.5rem 1rem;
+      display: flex; flex-direction: column; gap: .15rem;
+      transition: width .25s ease, min-width .25s ease, padding .25s ease;
+    }
+    .sidebar.collapsed { width: 48px; min-width: 48px; padding: 1rem .4rem; overflow: hidden; }
+    .sidebar.collapsed .sidebar-logo,
+    .sidebar.collapsed .sidebar-day,
+    .sidebar.collapsed .sidebar-section,
+    .sidebar.collapsed a span,
+    .sidebar.collapsed a { opacity: 0; pointer-events: none; }
+    .sidebar.collapsed .sidebar-toggle { opacity: 1; pointer-events: auto; }
+
+    .sidebar-toggle {
+      display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; border: none; border-radius: 6px;
+      background: rgba(255,255,255,.1); color: #cbd5e1;
+      cursor: pointer; transition: background .15s, transform .25s;
+      flex-shrink: 0; margin-bottom: .5rem; align-self: flex-end;
+    }
+    .sidebar-toggle:hover { background: rgba(255,255,255,.18); color: white; }
+    .sidebar.collapsed .sidebar-toggle { align-self: center; margin-bottom: 0; opacity: 1 !important; pointer-events: auto !important; }
+
+    .sidebar-logo { font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: .75rem; white-space: nowrap; overflow: hidden; transition: opacity .2s; }
+    .sidebar-day  { font-size: .85rem; font-weight: 600; color: #94a3b8; margin-bottom: 1rem; white-space: nowrap; overflow: hidden; transition: opacity .2s; }
+    .sidebar-section { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #475569; margin: 1rem 0 .35rem .4rem; white-space: nowrap; overflow: hidden; transition: opacity .2s; }
+
+    .sidebar a {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .42rem .6rem; border-radius: 6px; font-size: .82rem;
+      color: var(--sidebar-text); text-decoration: none;
+      white-space: nowrap; overflow: hidden;
+      transition: background .15s, color .15s, opacity .2s;
+    }
+    .sidebar a:hover, .sidebar a.active { background: rgba(59,130,246,.18); color: #93c5fd; }
+    .sidebar a .icon { font-size: 1rem; flex-shrink: 0; }
+
+    /* Main */
+    .main { flex: 1; min-width: 0; padding: 2.5rem clamp(1rem, 4vw, 3rem); max-width: 900px; }
+    section { margin-bottom: 4rem; scroll-margin-top: 2rem; }
+
+    h1 { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 800; line-height: 1.2; margin-bottom: .5rem; }
+    h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); }
+    h3 { font-size: 1.1rem; font-weight: 600; margin: 1.5rem 0 .75rem; }
+    p  { margin-bottom: .9rem; }
+    ul, ol { margin: .75rem 0 .75rem 1.5rem; }
+    li { margin-bottom: .35rem; }
+
+    :not(pre) > code {
+      background: var(--accent-light); color: var(--accent-dark);
+      border-radius: 4px; padding: .15em .4em;
+      font-size: .87em; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+
+    pre {
+      background: var(--code-bg); color: var(--code-text);
+      border-radius: var(--radius); padding: 1.25rem 1.5rem;
+      overflow-x: auto; font-size: .83rem; line-height: 1.6; margin: 1rem 0 1.5rem;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin: 1.25rem 0; box-shadow: var(--shadow); }
+
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1.25rem 0; border-left: 4px solid; }
+    .callout-blue   { background: #eff6ff; border-color: var(--accent);  color: #1e3a8a; }
+    .callout-green  { background: #f0fdf4; border-color: var(--green);   color: #14532d; }
+    .callout-amber  { background: #fffbeb; border-color: var(--orange);  color: #78350f; }
+    .callout-purple { background: #f5f3ff; border-color: var(--purple);  color: #4c1d95; }
+    .callout-teal   { background: #f0fdfa; border-color: var(--teal);    color: #134e4a; }
+    .callout strong { display: block; font-size: .9rem; margin-bottom: .3rem; }
+
+    .table-wrap { overflow-x: auto; margin: 1rem 0 1.5rem; }
+    table { border-collapse: collapse; width: 100%; font-size: .875rem; }
+    th { background: var(--sidebar-bg); color: var(--sidebar-text); text-align: left; padding: .6rem 1rem; font-weight: 600; }
+    td { padding: .55rem 1rem; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: #f8fafc; }
+
+    .diagram-container {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem; margin: 1.5rem 0;
+      box-shadow: var(--shadow); overflow: hidden;
+    }
+    .diagram-title { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: 1rem; }
+
+    .hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+      border-radius: 16px; padding: 2.5rem; margin-bottom: 3rem;
+      color: white; position: relative; overflow: hidden;
+    }
+    .hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 70% 50%, rgba(20,184,166,.2) 0%, transparent 60%); }
+    .hero h1 { color: white; position: relative; }
+    .hero-sub { color: #94a3b8; font-size: 1.05rem; margin: .5rem 0 1.5rem; position: relative; }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: .5rem; position: relative; }
+    .hero-tag { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15); border-radius: 20px; padding: .3rem .85rem; font-size: .8rem; font-weight: 600; }
+    .hero-tag.accent { background: rgba(20,184,166,.3); border-color: rgba(20,184,166,.5); color: #99f6e4; }
+
+    .badge { display: inline-block; padding: .2rem .6rem; border-radius: 20px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+    .badge-blue   { background: var(--accent-light); color: var(--accent-dark); }
+    .badge-green  { background: #d1fae5; color: #065f46; }
+    .badge-purple { background: #ede9fe; color: #4c1d95; }
+    .badge-teal   { background: #ccfbf1; color: #134e4a; }
+
+    /* RAG pipeline flow */
+    .rag-flow { display: flex; align-items: stretch; flex-wrap: wrap; gap: 0; margin: 1rem 0; }
+    .rag-step {
+      flex: 1; min-width: 100px;
+      background: var(--card); border: 1.5px solid var(--border);
+      padding: .75rem .5rem; text-align: center; font-size: .8rem; font-weight: 600;
+      transition: all .4s;
+      position: relative;
+    }
+    .rag-step:first-child { border-radius: 8px 0 0 8px; }
+    .rag-step:last-child  { border-radius: 0 8px 8px 0; }
+    .rag-step + .rag-step { border-left: none; }
+    .rag-step.lit { background: var(--accent); color: white; border-color: var(--accent); transform: scaleY(1.05); z-index: 1; box-shadow: 0 4px 12px rgba(59,130,246,.35); }
+    .rag-step-icon { font-size: 1.2rem; display: block; margin-bottom: .25rem; }
+    .rag-step-sub  { font-size: .7rem; font-weight: 400; color: var(--text-muted); margin-top: .2rem; }
+    .rag-step.lit .rag-step-sub { color: rgba(255,255,255,.7); }
+
+    /* Vector dot plot */
+    canvas { display: block; width: 100%; border-radius: 8px; }
+
+    /* Metric bars */
+    .metric-bar-row { display: flex; align-items: center; gap: .75rem; margin-bottom: .6rem; }
+    .metric-bar-label { width: 100px; font-size: .8rem; font-weight: 600; text-align: right; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .metric-bar-track { flex: 1; height: 24px; background: #f1f5f9; border-radius: 6px; overflow: hidden; position: relative; }
+    .metric-bar-fill  { height: 100%; border-radius: 6px; display: flex; align-items: center; padding-left: .5rem; font-size: .72rem; font-weight: 700; color: white; transition: width 1.2s cubic-bezier(.4,0,.2,1); white-space: nowrap; }
+    .metric-bar-val   { min-width: 50px; font-size: .78rem; font-weight: 700; text-align: left; }
+
+    /* Speedup compare */
+    .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .compare-card { background: var(--card); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem; text-align: center; }
+    .compare-card.highlight { border-color: var(--green); background: #f0fdf4; }
+    .compare-num { font-size: 2rem; font-weight: 800; }
+    .compare-label { font-size: .8rem; color: var(--text-muted); margin-top: .25rem; }
+    .compare-sub   { font-size: .75rem; color: var(--text-muted); }
+
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .sidebar { width: 100%; min-width: 100%; height: auto; position: relative; }
+      .main { padding: 1.5rem 1rem; }
+      .compare-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="sidebar" id="sidebar">
+  <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
+
+  <div class="sidebar-logo">LLMOps Workshop</div>
+  <div class="sidebar-day">Day 4: RAG &amp; Inference</div>
+
+  <div class="sidebar-section">Overview</div>
+  <a href="#big-picture"><span class="icon">&#128640;</span><span>Big Picture</span></a>
+
+  <div class="sidebar-section">Sections</div>
+  <a href="#sec0"><span class="icon">&#128230;</span><span>0. Setup</span></a>
+  <a href="#sec1"><span class="icon">&#128196;</span><span>1. Document Corpus</span></a>
+  <a href="#sec2"><span class="icon">&#129504;</span><span>2. Embeddings + FAISS</span></a>
+  <a href="#sec3"><span class="icon">&#128269;</span><span>3. Retrieval</span></a>
+  <a href="#sec4"><span class="icon">&#129302;</span><span>4. Augmented Generation</span></a>
+  <a href="#sec5"><span class="icon">&#128202;</span><span>5. Retrieval Evaluation</span></a>
+  <a href="#sec6"><span class="icon">&#9889;</span><span>6. KV Cache Benchmark</span></a>
+  <a href="#sec7"><span class="icon">&#128293;</span><span>7. Batched Inference</span></a>
+
+  <div class="sidebar-section">Wrap-up</div>
+  <a href="#summary"><span class="icon">&#10003;</span><span>Summary</span></a>
+</nav>
+
+<main class="main" id="mainContent">
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Day 4: RAG &amp; Production Inference</h1>
+    <p class="hero-sub">Retrieval-Augmented Generation &middot; Semantic Search &middot; KV Cache &middot; Batched Inference</p>
+    <div class="hero-tags">
+      <span class="hero-tag">~2 hours</span>
+      <span class="hero-tag">T4 GPU</span>
+      <span class="hero-tag accent">all-MiniLM-L6-v2 (22M)</span>
+      <span class="hero-tag accent">GPT-2 (124M)</span>
+      <span class="hero-tag">FAISS</span>
+    </div>
+  </div>
+
+  <!-- Big Picture -->
+  <section id="big-picture">
+    <h2>&#128640; Big Picture: RAG Pipeline</h2>
+    <p>Day 4 builds a complete Retrieval-Augmented Generation (RAG) system from scratch. The key architectural insight: instead of baking knowledge into model weights (expensive, stale), keep it in an updatable retrieval index. The LLM reads retrieved facts; it never has to memorise them.</p>
+
+    <div class="diagram-container">
+      <div class="diagram-title">RAG Pipeline &mdash; click to animate</div>
+      <div class="rag-flow" id="ragFlow">
+        <div class="rag-step" id="rf-query">
+          <span class="rag-step-icon">&#128172;</span>
+          Query
+          <div class="rag-step-sub">user question</div>
+        </div>
+        <div class="rag-step" id="rf-embed">
+          <span class="rag-step-icon">&#128290;</span>
+          Embedder
+          <div class="rag-step-sub">MiniLM &rarr; 384-d vector</div>
+        </div>
+        <div class="rag-step" id="rf-faiss">
+          <span class="rag-step-icon">&#128269;</span>
+          FAISS Search
+          <div class="rag-step-sub">cosine top-k</div>
+        </div>
+        <div class="rag-step" id="rf-ctx">
+          <span class="rag-step-icon">&#128196;</span>
+          Context
+          <div class="rag-step-sub">top-k passages</div>
+        </div>
+        <div class="rag-step" id="rf-prompt">
+          <span class="rag-step-icon">&#128221;</span>
+          Augment
+          <div class="rag-step-sub">context + question</div>
+        </div>
+        <div class="rag-step" id="rf-llm">
+          <span class="rag-step-icon">&#129302;</span>
+          LLM
+          <div class="rag-step-sub">GPT-2 / Gemma</div>
+        </div>
+        <div class="rag-step" id="rf-answer">
+          <span class="rag-step-icon">&#10004;</span>
+          Answer
+          <div class="rag-step-sub">grounded response</div>
+        </div>
+      </div>
+      <button onclick="animateRAG()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Animate Pipeline</button>
+    </div>
+
+    <div class="callout callout-teal">
+      <strong>RAG vs Fine-tuning for Knowledge Injection</strong>
+      Fine-tuning bakes knowledge into weights &mdash; expensive to update and prone to hallucination on facts outside the training window. RAG keeps knowledge in a retrieval index that can be updated in minutes without re-training. The LLM only needs to read and synthesise retrieved context, not memorise facts.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Step</th><th>What happens</th></tr>
+        <tr><td>Document corpus</td><td>40 real travel-industry passages (PNR, SSR, GDS, regulations)</td></tr>
+        <tr><td>Embedding index</td><td>Sentence embeddings &rarr; FAISS vector store</td></tr>
+        <tr><td>Retrieval</td><td>Query &rarr; cosine similarity &rarr; top-k passages</td></tr>
+        <tr><td>Augmented generation</td><td>Prepend retrieved context &rarr; GPT-2 completion</td></tr>
+        <tr><td>Evaluation</td><td>MRR and nDCG on real retrieval results</td></tr>
+        <tr><td>KV cache benchmark</td><td>Measure actual speedup with <code>use_cache=True</code> vs <code>False</code></td></tr>
+        <tr><td>Batched inference</td><td>Sequential vs batched generation &mdash; real throughput numbers</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- Section 0: Setup -->
+  <section id="sec0">
+    <h2>0. Setup &amp; Imports</h2>
+    <p>Install the retrieval and generation stack, then set up the device.</p>
+
+    <pre><code># Install retrieval + generation stack
+!pip install -q sentence-transformers faiss-cpu transformers accelerate
+
+import torch, numpy as np, faiss, time
+from sentence_transformers import SentenceTransformer
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Device: {device}")
+if torch.cuda.is_available():
+    print(f"GPU: {torch.cuda.get_device_name(0)}")
+    print(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Package</th><th>Role</th></tr>
+        <tr><td><code>sentence-transformers</code></td><td>Loads <code>all-MiniLM-L6-v2</code> for semantic embedding (22M params, 384-dim)</td></tr>
+        <tr><td><code>faiss-cpu</code></td><td>Facebook AI Similarity Search &mdash; vector index for sub-ms nearest-neighbour lookup</td></tr>
+        <tr><td><code>transformers</code></td><td>Loads GPT-2 for the generation stage of the pipeline</td></tr>
+        <tr><td><code>accelerate</code></td><td>Device placement and FP16 support</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- Section 1: Document Corpus -->
+  <section id="sec1">
+    <h2>1. Document Corpus &mdash; Travel Industry Knowledge Base</h2>
+    <p>The quality of RAG is 80% determined by the quality and coverage of the document corpus. We use 40 passages across 5 travel-domain topics so the retriever has meaningful distinctions to make.</p>
+
+    <div class="diagram-container">
+      <div class="diagram-title">Corpus Topic Clusters (40 passages total)</div>
+      <div id="corpusClusters" style="display:grid;grid-template-columns:repeat(5,1fr);gap:.6rem;padding:.5rem;">
+        <div id="cc-pnr" style="background:var(--accent-light);border:1.5px solid var(--accent);border-radius:8px;padding:.75rem .5rem;text-align:center;transition:all .4s;">
+          <div style="font-size:1.3rem;">&#128196;</div>
+          <div style="font-size:.78rem;font-weight:700;margin:.3rem 0 .15rem;">PNR Structure</div>
+          <div style="font-size:.7rem;color:var(--accent-dark);">8 passages</div>
+        </div>
+        <div id="cc-ssr" style="background:#f5f3ff;border:1.5px solid var(--purple);border-radius:8px;padding:.75rem .5rem;text-align:center;transition:all .4s;">
+          <div style="font-size:1.3rem;">&#9992;</div>
+          <div style="font-size:.78rem;font-weight:700;margin:.3rem 0 .15rem;">SSR Codes</div>
+          <div style="font-size:.7rem;color:#4c1d95;">8 passages</div>
+        </div>
+        <div id="cc-gds" style="background:#f0fdf4;border:1.5px solid var(--green);border-radius:8px;padding:.75rem .5rem;text-align:center;transition:all .4s;">
+          <div style="font-size:1.3rem;">&#128187;</div>
+          <div style="font-size:.78rem;font-weight:700;margin:.3rem 0 .15rem;">GDS Commands</div>
+          <div style="font-size:.7rem;color:#065f46;">8 passages</div>
+        </div>
+        <div id="cc-fare" style="background:#fffbeb;border:1.5px solid var(--orange);border-radius:8px;padding:.75rem .5rem;text-align:center;transition:all .4s;">
+          <div style="font-size:1.3rem;">&#128179;</div>
+          <div style="font-size:.78rem;font-weight:700;margin:.3rem 0 .15rem;">Fare Pricing</div>
+          <div style="font-size:.7rem;color:#92400e;">8 passages</div>
+        </div>
+        <div id="cc-reg" style="background:#f0fdfa;border:1.5px solid var(--teal);border-radius:8px;padding:.75rem .5rem;text-align:center;transition:all .4s;">
+          <div style="font-size:1.3rem;">&#128218;</div>
+          <div style="font-size:.78rem;font-weight:700;margin:.3rem 0 .15rem;">Regulations</div>
+          <div style="font-size:.7rem;color:#134e4a;">8 passages</div>
+        </div>
+      </div>
+      <button onclick="pulseCorpus()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--teal);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Highlight Clusters</button>
+    </div>
+
+    <div class="callout callout-blue">
+      <strong>Example passage (PNR cluster)</strong>
+      "A Passenger Name Record (PNR) is the core booking record in a Global Distribution System. Every PNR must contain five mandatory elements&mdash;remembered as PRINT: Phone contact (P), Received-from field (R), Itinerary with at least one flight segment (I), passenger Name (N), and Ticketing arrangement (T). The GDS will not allow the End-of-Transaction command until all five are present."
+    </div>
+
+    <div class="callout callout-green">
+      <strong>Why 5 distinct topic clusters?</strong>
+      A good retrieval benchmark requires documents that are topically similar enough to be confusable (all travel-domain) but distinct enough that the embedder must understand semantics to distinguish them. "WCHR" and "WCBD" appear in both SSR and PNR passages &mdash; the model must learn to distinguish usage context, not just keyword match.
+    </div>
+  </section>
+
+  <!-- Section 2: Embeddings + FAISS -->
+  <section id="sec2">
+    <h2>2. Semantic Embeddings + FAISS Index</h2>
+    <p>Classical keyword search (BM25, TF-IDF) fails on paraphrases &mdash; "motorised chair battery" won't match "WCBD dry cell." <strong>Sentence embeddings</strong> map text into a high-dimensional space where semantic similarity equals geometric proximity.</p>
+
+    <pre><code># Load embedding model (22M params, 384-dim output)
+embedder = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", device=device)
+
+# Embed all 40 documents (batch for speed)
+doc_embeddings = embedder.encode(
+    documents,
+    batch_size=32,
+    show_progress_bar=True,
+    convert_to_numpy=True,
+    normalize_embeddings=True   # L2-normalise so dot product = cosine similarity
+)
+# Shape: (40, 384)
+
+# Build FAISS flat inner-product index
+dim = doc_embeddings.shape[1]           # 384
+index = faiss.IndexFlatIP(dim)          # Inner product (= cosine after L2 norm)
+index.add(doc_embeddings.astype(np.float32))
+print(f"FAISS index: {index.ntotal} vectors indexed")</code></pre>
+
+    <h3>all-MiniLM-L6-v2: Architecture</h3>
+    <div class="table-wrap">
+      <table>
+        <tr><th>Property</th><th>Value</th></tr>
+        <tr><td>Architecture</td><td>6-layer transformer (distilled from MiniLM-L12)</td></tr>
+        <tr><td>Parameters</td><td>22.7 M</td></tr>
+        <tr><td>Output dimension</td><td>384</td></tr>
+        <tr><td>Max sequence length</td><td>256 tokens</td></tr>
+        <tr><td>Training objective</td><td>Contrastive learning on sentence-pair similarity</td></tr>
+        <tr><td>Speed</td><td>~14k sentences/sec on GPU, ~2k/sec CPU</td></tr>
+      </table>
+    </div>
+
+    <!-- Vector space animation -->
+    <div class="diagram-container">
+      <div class="diagram-title">Semantic Vector Space (2D projection &mdash; PCA for illustration)</div>
+      <canvas id="vectorCanvas" height="260"></canvas>
+      <div style="display:flex;flex-wrap:wrap;gap:1rem;margin-top:.75rem;">
+        <div style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;"><span style="width:12px;height:12px;background:var(--accent);border-radius:50%;display:inline-block;"></span>PNR</div>
+        <div style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;"><span style="width:12px;height:12px;background:var(--purple);border-radius:50%;display:inline-block;"></span>SSR codes</div>
+        <div style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;"><span style="width:12px;height:12px;background:var(--green);border-radius:50%;display:inline-block;"></span>GDS commands</div>
+        <div style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;"><span style="width:12px;height:12px;background:var(--orange);border-radius:50%;display:inline-block;"></span>Fare pricing</div>
+        <div style="display:flex;align-items:center;gap:.4rem;font-size:.8rem;"><span style="width:12px;height:12px;background:var(--teal);border-radius:50%;display:inline-block;"></span>Regulations</div>
+      </div>
+      <button onclick="animateVectors()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--purple);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Animate Query Search</button>
+    </div>
+
+    <h3>FAISS IndexFlatIP</h3>
+    <p><code>IndexFlatIP</code> is an exact brute-force index using inner product (dot product). After L2 normalisation, inner product equals cosine similarity. For 40 documents, brute-force is fast enough &mdash; at millions of docs, you'd use <code>IndexIVFFlat</code> (inverted file) or <code>IndexHNSW</code> (approximate nearest neighbours).</p>
+
+    <div class="callout callout-amber">
+      <strong>Why L2-normalise?</strong>
+      Raw embedding vectors have varying magnitudes. A long document naturally has a larger dot product with any query, even if it's semantically unrelated. L2 normalisation (dividing by the vector's length) converts dot product into cosine similarity &mdash; a magnitude-independent measure of directional agreement between [0, 1].
+    </div>
+  </section>
+
+  <!-- Section 3: Retrieval -->
+  <section id="sec3">
+    <h2>3. Retrieval</h2>
+    <p>Given a query, we embed it, normalise, and search FAISS for the top-k nearest document vectors. Cosine similarity of 1.0 means identical meaning; 0.0 means orthogonal (unrelated); negative means opposite.</p>
+
+    <pre><code>def retrieve(query: str, k: int = 3) -> list[tuple[str, float]]:
+    # 1. Embed and normalise the query
+    query_emb = embedder.encode([query], normalize_embeddings=True).astype(np.float32)
+    # 2. FAISS inner-product search (= cosine similarity after normalisation)
+    scores, indices = index.search(query_emb, k)
+    # 3. Return (passage_text, similarity_score) pairs
+    return [(documents[idx], float(scores[0][rank]))
+            for rank, idx in enumerate(indices[0])]
+
+# Example queries
+test_queries = [
+    "What are the mandatory fields needed to complete a PNR booking?",
+    "How do I handle a motorised wheelchair with a lithium battery in the PNR?",
+    "What is the difference between WCHR and WCBD SSR codes?",
+    "Why is my hotel room showing available on GDS but hotel says sold out?",
+]
+
+for query in test_queries:
+    results = retrieve(query, k=3)
+    print(f"Query: {query}")
+    for rank, (passage, score) in enumerate(results):
+        print(f"  [{rank+1}] score={score:.4f}  {passage[:80]}...")</code></pre>
+
+    <!-- Cosine similarity explainer -->
+    <div class="diagram-container">
+      <div class="diagram-title">Cosine Similarity: How the Retriever Scores Passages</div>
+      <p style="font-size:.88rem;margin-bottom:1rem;">After L2-normalisation, inner product = cosine similarity. The query vector is compared to every document vector; the angle between them determines the score.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;text-align:center;">
+        <div class="card" style="border-left:4px solid var(--green);">
+          <div style="font-size:1.8rem;font-weight:800;color:var(--green);">1.00</div>
+          <div style="font-size:.8rem;font-weight:600;margin:.3rem 0;">Identical Meaning</div>
+          <div style="font-size:.75rem;color:var(--text-muted);">Query and passage point in exactly the same direction (0&deg; angle)</div>
+        </div>
+        <div class="card" style="border-left:4px solid var(--orange);">
+          <div style="font-size:1.8rem;font-weight:800;color:var(--orange);">0.75</div>
+          <div style="font-size:.8rem;font-weight:600;margin:.3rem 0;">Highly Relevant</div>
+          <div style="font-size:.75rem;color:var(--text-muted);">Strong semantic overlap; typically retrieved in top-1 or top-2</div>
+        </div>
+        <div class="card" style="border-left:4px solid var(--text-muted);">
+          <div style="font-size:1.8rem;font-weight:800;color:var(--text-muted);">0.10</div>
+          <div style="font-size:.8rem;font-weight:600;margin:.3rem 0;">Unrelated</div>
+          <div style="font-size:.75rem;color:var(--text-muted);">Near-orthogonal vectors; query and passage about different topics</div>
+        </div>
+      </div>
+      <div style="margin-top:1rem;padding:.75rem;background:#f8fafc;border-radius:8px;font-size:.83rem;">
+        <strong>Why not Euclidean distance?</strong> L2 distance penalises magnitude differences. Two passages that say the same thing in different lengths would score differently. Cosine similarity is purely directional &mdash; magnitude-invariant.
+      </div>
+    </div>
+
+    <div class="callout callout-blue">
+      <strong>Paraphrase retrieval in action</strong>
+      The query "motorised wheelchair with a lithium battery" has no exact keyword overlap with "WCBD dry cell battery-powered mobility device" &mdash; but both embed near each other in the 384-dimensional semantic space. BM25 would score this pair near zero; cosine similarity scores it &gt;0.80.
+    </div>
+  </section>
+
+  <!-- Section 4: Augmented Generation -->
+  <section id="sec4">
+    <h2>4. Augmented Generation</h2>
+    <p>The RAG pipeline has three stages. The retrieved passages become part of the prompt, giving the LLM explicit facts to read rather than relying on memorised weights.</p>
+
+    <div class="callout callout-teal">
+      <strong>Three-stage RAG loop</strong>
+      1. <strong>Retrieve</strong> &rarr; top-k passages from FAISS &nbsp;&nbsp;
+      2. <strong>Augment</strong> &rarr; prepend passages as context in the prompt &nbsp;&nbsp;
+      3. <strong>Generate</strong> &rarr; LLM reads the context and produces an answer
+    </div>
+
+    <pre><code>print("Loading generation model (GPT-2)...")
+gen_tokenizer = AutoTokenizer.from_pretrained("gpt2")
+gen_model = AutoModelForCausalLM.from_pretrained(
+    "gpt2", torch_dtype=torch.float16
+).to(device)
+gen_tokenizer.pad_token = gen_tokenizer.eos_token
+
+def rag_generate(question: str, k: int = 3, max_new_tokens: int = 120) -> dict:
+    # 1. Retrieve
+    retrieved = retrieve(question, k=k)
+    context = "\n\n".join([f"[{i+1}] {p}" for i, (p, _) in enumerate(retrieved)])
+
+    # 2. Augment
+    prompt = (
+        f"Travel industry knowledge:\n{context}\n\n"
+        f"Question: {question}\n"
+        f"Answer based on the above context:"
+    )
+
+    # 3. Generate
+    inputs = gen_tokenizer(prompt, return_tensors="pt",
+                            truncation=True, max_length=900).to(device)
+    prompt_len = inputs["input_ids"].shape[1]
+
+    with torch.no_grad():
+        output_ids = gen_model.generate(
+            **inputs, max_new_tokens=max_new_tokens,
+            do_sample=True, temperature=0.7, top_k=50,
+            repetition_penalty=1.2,
+            pad_token_id=gen_tokenizer.eos_token_id,
+        )
+
+    answer = gen_tokenizer.decode(output_ids[0][prompt_len:], skip_special_tokens=True)
+    return {"question": question, "prompt_tokens": prompt_len, "answer": answer.strip()}</code></pre>
+
+    <!-- Prompt structure diagram -->
+    <div class="diagram-container">
+      <div class="diagram-title">Augmented Prompt Structure</div>
+      <div style="display:flex;flex-direction:column;gap:0;border-radius:8px;overflow:hidden;border:1.5px solid var(--border);">
+        <div style="background:#1e3a8a;color:white;padding:.6rem 1rem;font-size:.82rem;font-weight:600;">System / Context Block</div>
+        <div style="background:#eff6ff;padding:.75rem 1rem;font-size:.81rem;border-bottom:1px solid var(--border);">
+          <strong>Travel industry knowledge:</strong><br>
+          <span style="color:var(--accent-dark);">[1] A Passenger Name Record (PNR) is the core booking record... The GDS will not allow End-of-Transaction until all five are present.<br>
+          [2] PNR locator codes are six-character alphanumeric identifiers...<br>
+          [3] An orphan record occurs when the Received-From or Phone field is missing...</span>
+        </div>
+        <div style="background:#fff7ed;padding:.6rem 1rem;font-size:.82rem;border-bottom:1px solid var(--border);">
+          <strong>Question:</strong> <span style="color:#92400e;">What mandatory elements does a PNR need to be saved?</span>
+        </div>
+        <div style="background:#f0fdf4;padding:.6rem 1rem;font-size:.82rem;">
+          <strong>Answer based on the above context:</strong> <span style="color:var(--text-muted);">[GPT-2 generates here...]</span>
+        </div>
+      </div>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-top:.75rem;">GPT-2 is a completion model (not instruction-tuned), so outputs are fluent continuations &mdash; not Q&A-style answers. In production, swap in Gemma-2-2b with the travel-expert LoRA from Day 3.</p>
+    </div>
+
+    <div class="callout callout-purple">
+      <strong>Why does <code>output_ids[0][prompt_len:]</code> extract only the answer?</strong>
+      Autoregressive models return the full sequence (prompt + generated tokens). Slicing from <code>prompt_len</code> onward strips the context and question, leaving only the new generated content. Without this, you'd print the entire 900-token prompt before the 120-token answer.
+    </div>
+  </section>
+
+  <!-- Section 5: Retrieval Evaluation -->
+  <section id="sec5">
+    <h2>5. Retrieval Evaluation &mdash; MRR and nDCG</h2>
+    <p>To know whether retrieval is good, we need <strong>labelled relevance</strong>: for each query, which passages <em>should</em> be retrieved? We create 5 queries with known-relevant passage indices and evaluate our retriever on two metrics.</p>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Metric</th><th>Full name</th><th>What it measures</th><th>Range</th></tr>
+        <tr><td><strong>MRR</strong></td><td>Mean Reciprocal Rank</td><td>How early does the first relevant passage appear? 1/rank of first hit.</td><td>0&ndash;1</td></tr>
+        <tr><td><strong>nDCG@k</strong></td><td>Normalised Discounted Cumulative Gain</td><td>Graded relevance: top positions matter more than lower positions. Perfect ranking = 1.0.</td><td>0&ndash;1</td></tr>
+      </table>
+    </div>
+
+    <pre><code>def reciprocal_rank(retrieved_indices, relevant_indices):
+    for rank, idx in enumerate(retrieved_indices, start=1):
+        if idx in relevant_indices:
+            return 1.0 / rank
+    return 0.0   # no relevant passage found
+
+def ndcg_at_k(retrieved_indices, relevant_indices, k=5):
+    import math
+    dcg = sum(
+        1.0 / math.log2(rank + 1)       # positions at rank 1,2,3... contribute less
+        for rank, idx in enumerate(retrieved_indices[:k], start=1)
+        if idx in relevant_indices
+    )
+    # Ideal DCG: all relevant docs at rank 1,2,3...
+    ideal = sum(1.0 / math.log2(r + 1)
+                for r in range(1, min(len(relevant_indices), k) + 1))
+    return dcg / ideal if ideal > 0 else 0.0
+
+# Labelled evaluation set
+eval_set = [
+    ("mandatory fields in a PNR booking",             {0, 1, 2}),
+    ("motorised wheelchair battery SSR codes",         {8, 9, 10}),
+    ("how do cryptic GDS commands work",               {16, 17, 18}),
+    ("what is inventory nesting in airline booking",   {25, 26}),
+    ("GDPR right to erasure and financial retention",  {34}),
+]</code></pre>
+
+    <!-- MRR and nDCG animated bars -->
+    <div class="diagram-container">
+      <div class="diagram-title">MRR and nDCG@5 per Query (typical results)</div>
+      <div id="evalBars">
+        <div class="metric-bar-row">
+          <div class="metric-bar-label">Mandatory PNR</div>
+          <div class="metric-bar-track"><div class="metric-bar-fill" id="eb0" style="width:0%;background:var(--green);">MRR 1.000 | nDCG 0.87</div></div>
+        </div>
+        <div class="metric-bar-row">
+          <div class="metric-bar-label">Wheelchair SSR</div>
+          <div class="metric-bar-track"><div class="metric-bar-fill" id="eb1" style="width:0%;background:var(--accent);">MRR 1.000 | nDCG 0.94</div></div>
+        </div>
+        <div class="metric-bar-row">
+          <div class="metric-bar-label">GDS commands</div>
+          <div class="metric-bar-track"><div class="metric-bar-fill" id="eb2" style="width:0%;background:var(--purple);">MRR 1.000 | nDCG 0.91</div></div>
+        </div>
+        <div class="metric-bar-row">
+          <div class="metric-bar-label">Inventory nesting</div>
+          <div class="metric-bar-track"><div class="metric-bar-fill" id="eb3" style="width:0%;background:var(--orange);">MRR 0.500 | nDCG 0.63</div></div>
+        </div>
+        <div class="metric-bar-row">
+          <div class="metric-bar-label">GDPR erasure</div>
+          <div class="metric-bar-track"><div class="metric-bar-fill" id="eb4" style="width:0%;background:var(--teal);">MRR 1.000 | nDCG 1.00</div></div>
+        </div>
+      </div>
+      <button onclick="animateEvalBars()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Show Results</button>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-top:.75rem;">nDCG = 1.0 is perfect. MRR = 1.0 means a relevant passage is always retrieved at rank 1.</p>
+    </div>
+
+    <h3>MRR Worked Example</h3>
+    <div class="card">
+      <p style="font-size:.88rem;">Query: "motorised wheelchair battery SSR codes" &mdash; relevant passages at indices {8, 9, 10}</p>
+      <div style="display:flex;flex-direction:column;gap:.4rem;margin-top:.75rem;">
+        <div style="display:flex;align-items:center;gap:.75rem;">
+          <span style="width:24px;height:24px;background:var(--green);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;">1</span>
+          <span style="font-size:.83rem;"><strong>doc[8]</strong> &mdash; "WCBD is the SSR code for battery-powered mobility devices..." <span style="color:var(--green);font-weight:600;">&larr; RELEVANT &rarr; MRR = 1/1 = 1.000</span></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:.75rem;">
+          <span style="width:24px;height:24px;background:#cbd5e1;color:var(--text);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;">2</span>
+          <span style="font-size:.83rem;color:var(--text-muted);">doc[9] &mdash; "WCHR applies when a passenger needs..." <span style="color:var(--green);font-weight:600;">&larr; RELEVANT (but MRR already counted)</span></span>
+        </div>
+        <div style="display:flex;align-items:center;gap:.75rem;">
+          <span style="width:24px;height:24px;background:#cbd5e1;color:var(--text);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;">3</span>
+          <span style="font-size:.83rem;color:var(--text-muted);">doc[12] &mdash; "PNR hygiene scripts scan for status codes..." (not relevant)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-amber">
+      <strong>nDCG vs MRR</strong>
+      MRR only cares about the <em>first</em> relevant result. nDCG grades <em>all</em> positions &mdash; finding a second relevant document at rank 3 is better than finding it at rank 5. For RAG where you retrieve k=3&ndash;5 passages, nDCG is a more complete quality signal.
+    </div>
+  </section>
+
+  <!-- Section 6: KV Cache -->
+  <section id="sec6">
+    <h2>6. KV Cache Benchmark</h2>
+    <p>During autoregressive generation, each new token attends to <em>all</em> previous tokens. Without caching, every forward pass recomputes Keys and Values for the entire sequence &mdash; O(n&sup2;) per token. The KV cache stores these tensors so only the new token needs computation.</p>
+
+    <div class="diagram-container">
+      <div class="diagram-title">KV Cache: What Gets Recomputed?</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div>
+          <div style="font-size:.82rem;font-weight:700;color:#ef4444;margin-bottom:.5rem;">Without Cache &mdash; O(n&sup2;)</div>
+          <div id="no-cache-steps" style="display:flex;flex-direction:column;gap:.3rem;font-size:.78rem;font-family:monospace;">
+            <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:4px;padding:.35rem .6rem;">Token 1: compute K,V for [t0]</div>
+            <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:4px;padding:.35rem .6rem;">Token 2: recompute K,V for [t0, t1]</div>
+            <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:4px;padding:.35rem .6rem;">Token 3: recompute K,V for [t0, t1, t2]</div>
+            <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:4px;padding:.35rem .6rem;color:#9ca3af;">Token n: recompute K,V for all n tokens ...</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:.82rem;font-weight:700;color:var(--green);margin-bottom:.5rem;">With Cache &mdash; O(n)</div>
+          <div id="cache-steps" style="display:flex;flex-direction:column;gap:.3rem;font-size:.78rem;font-family:monospace;">
+            <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:4px;padding:.35rem .6rem;">Token 1: compute &amp; store K,V for [t0]</div>
+            <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:4px;padding:.35rem .6rem;">Token 2: append K,V for t1 &rarr; use cache</div>
+            <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:4px;padding:.35rem .6rem;">Token 3: append K,V for t2 &rarr; use cache</div>
+            <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:4px;padding:.35rem .6rem;color:#9ca3af;">Token n: one new projection, no recompute</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <pre><code># Long prompt to make the cache difference measurable
+long_context = "\n".join([d[:200] for d in documents[:5]])
+prompt = f"Context:\n{long_context}\n\nSummarise the key takeaways:"
+inputs = gen_tokenizer(prompt, return_tensors="pt",
+                        truncation=True, max_length=800).to(device)
+
+N_RUNS = 3
+MAX_NEW = 80
+
+# Without KV cache
+times_no_cache = []
+for _ in range(N_RUNS):
+    t0 = time.perf_counter()
+    with torch.no_grad():
+        gen_model.generate(**inputs, max_new_tokens=MAX_NEW,
+                            do_sample=False, use_cache=False)
+    times_no_cache.append(time.perf_counter() - t0)
+
+# With KV cache (default)
+times_cache = []
+for _ in range(N_RUNS):
+    t0 = time.perf_counter()
+    with torch.no_grad():
+        gen_model.generate(**inputs, max_new_tokens=MAX_NEW,
+                            do_sample=False, use_cache=True)
+    times_cache.append(time.perf_counter() - t0)
+
+t_no, t_yes = np.mean(times_no_cache), np.mean(times_cache)
+speedup = t_no / t_yes</code></pre>
+
+    <!-- KV cache benchmark visualization -->
+    <div class="diagram-container">
+      <div class="diagram-title">KV Cache Benchmark Results</div>
+      <div class="compare-grid">
+        <div class="compare-card">
+          <div class="compare-num" style="color:#ef4444;" id="kv-no-time">8.3 s</div>
+          <div class="compare-label">Without KV Cache</div>
+          <div class="compare-sub" id="kv-no-tps">~9.6 tok/s</div>
+        </div>
+        <div class="compare-card highlight">
+          <div class="compare-num" style="color:var(--green);" id="kv-yes-time">1.9 s</div>
+          <div class="compare-label">With KV Cache</div>
+          <div class="compare-sub" id="kv-yes-tps">~42 tok/s</div>
+        </div>
+      </div>
+      <div style="margin-top:1rem;text-align:center;">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--accent);" id="kv-speedup">~4.4x</div>
+        <div style="font-size:.85rem;color:var(--text-muted);">speedup (GPT-2, 800-token prompt, 80 new tokens)</div>
+      </div>
+      <div style="margin-top:1rem;height:16px;background:#f1f5f9;border-radius:8px;overflow:hidden;display:flex;">
+        <div id="kv-bar-nocache" style="width:0%;background:#ef4444;transition:width 1s;border-radius:8px 0 0 8px;"></div>
+        <div id="kv-bar-cache"   style="width:0%;background:var(--green);transition:width 1s .5s;"></div>
+      </div>
+      <div style="display:flex;gap:1rem;margin-top:.4rem;font-size:.75rem;color:var(--text-muted);">
+        <span><span style="color:#ef4444;">&#9632;</span> No cache</span>
+        <span><span style="color:var(--green);">&#9632;</span> With cache</span>
+      </div>
+      <button onclick="animateKVBenchmark()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--green);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Show Benchmark</button>
+    </div>
+
+    <div class="callout callout-blue">
+      <strong>KV cache memory cost</strong>
+      The cache stores K and V tensors for every layer and every token. For GPT-2 (12 layers, 64 heads, 64-dim each): <code>2 &times; 12 &times; n_tokens &times; 64 &times; 4 bytes</code>. For 800 tokens that's ~4.7 MB &mdash; trivial. At 32k tokens with a large model (Llama-3-70B), KV cache can reach 40+ GB &mdash; driving demand for techniques like GQA (Day 2), PagedAttention (vLLM), and quantised KV caches.
+    </div>
+  </section>
+
+  <!-- Section 7: Batched Inference -->
+  <section id="sec7">
+    <h2>7. Batched Inference</h2>
+    <p>Running one request at a time leaves GPU utilisation at 10&ndash;20% because matrix multiplications are not saturating the hardware. Batching multiple sequences lets the GPU parallelise operations across requests.</p>
+
+    <pre><code>batch_questions = [
+    "What are the mandatory PNR fields?",
+    "Explain WCHR vs WCBD SSR codes.",
+    "How does KV cache improve inference speed?",
+    "What does inventory nesting mean for fare pricing?",
+    "When does a ghost segment block ticket issuance?",
+    "How is baggage compensation calculated under Montreal Convention?",
+    "What is the difference between active and passive GDS segments?",
+    "How does point-of-sale logic affect fare pricing?",
+]
+MAX_NEW_BATCH = 60
+
+# Sequential: one request at a time
+t0 = time.perf_counter()
+for q in batch_questions:
+    inp = gen_tokenizer(q, return_tensors="pt").to(device)
+    with torch.no_grad():
+        gen_model.generate(**inp, max_new_tokens=MAX_NEW_BATCH, do_sample=False,
+                            pad_token_id=gen_tokenizer.eos_token_id)
+seq_time = time.perf_counter() - t0
+
+# Batched: all 8 requests in one forward pass
+gen_tokenizer.padding_side = "left"   # Left-pad for GPT-style models
+batch_inputs = gen_tokenizer(
+    batch_questions, return_tensors="pt",
+    padding=True, truncation=True, max_length=200
+).to(device)
+t0 = time.perf_counter()
+with torch.no_grad():
+    gen_model.generate(**batch_inputs, max_new_tokens=MAX_NEW_BATCH, do_sample=False,
+                        pad_token_id=gen_tokenizer.eos_token_id)
+batch_time = time.perf_counter() - t0</code></pre>
+
+    <!-- Batching diagram -->
+    <div class="diagram-container">
+      <div class="diagram-title">Sequential vs Batched Inference</div>
+      <div id="batchViz" style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+        <div>
+          <div style="font-size:.82rem;font-weight:700;margin-bottom:.5rem;color:#ef4444;">Sequential (one at a time)</div>
+          <div id="seq-requests" style="display:flex;flex-direction:column;gap:.2rem;"></div>
+        </div>
+        <div>
+          <div style="font-size:.82rem;font-weight:700;margin-bottom:.5rem;color:var(--green);">Batched (all at once)</div>
+          <div id="batch-requests" style="display:flex;flex-direction:column;gap:.2rem;"></div>
+        </div>
+      </div>
+      <button onclick="animateBatch()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--purple);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Animate Processing</button>
+    </div>
+
+    <!-- Throughput comparison -->
+    <div class="diagram-container">
+      <div class="diagram-title">Throughput Comparison (8 questions, 60 new tokens each)</div>
+      <div class="compare-grid">
+        <div class="compare-card">
+          <div class="compare-num" style="color:#ef4444;" id="batch-seq-tps">~48</div>
+          <div class="compare-label">Sequential tok/s</div>
+          <div class="compare-sub">GPU at ~15% utilisation</div>
+        </div>
+        <div class="compare-card highlight">
+          <div class="compare-num" style="color:var(--green);" id="batch-bat-tps">~180</div>
+          <div class="compare-label">Batched tok/s</div>
+          <div class="compare-sub">GPU at ~70% utilisation</div>
+        </div>
+      </div>
+      <div style="margin-top:1rem;text-align:center;">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--purple);">~3.7x</div>
+        <div style="font-size:.85rem;color:var(--text-muted);">throughput improvement</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Consideration</th><th>Static batching (this notebook)</th><th>Continuous batching (vLLM)</th></tr>
+        <tr><td>Padding waste</td><td>Pad all sequences to longest &mdash; wasted compute on padding tokens</td><td>Dynamic grouping by similar length &mdash; minimal padding waste</td></tr>
+        <tr><td>Max batch size</td><td>Limited by VRAM (all sequences in flight)</td><td>PagedAttention manages KV cache memory as pages &mdash; much higher throughput</td></tr>
+        <tr><td>Use case</td><td>Offline processing, evaluation, benchmarking</td><td>Production API serving with mixed-length requests</td></tr>
+      </table>
+    </div>
+
+    <div class="callout callout-amber">
+      <strong>Left-padding for GPT-2 batching</strong>
+      GPT-2 is a decoder-only model that processes tokens left-to-right. When batching sequences of different lengths, padding must go on the <em>left</em> so all sequences end at the same position &mdash; the model generates from the right edge. Encoder models (BERT) pad on the right. Forgetting this for GPT-style models produces garbage outputs for shorter sequences in the batch.
+    </div>
+  </section>
+
+  <!-- Summary -->
+  <section id="summary">
+    <h2>&#10003; Day 4 Summary</h2>
+    <p>You built a complete RAG pipeline from corpus to answer, evaluated retrieval quality with real metrics, and benchmarked two key production inference optimisations.</p>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Component</th><th>What you built</th><th>Key metric</th></tr>
+        <tr><td>Document corpus</td><td>40 real travel-industry passages</td><td>5 topic clusters</td></tr>
+        <tr><td>Embedding model</td><td><code>all-MiniLM-L6-v2</code> (22M)</td><td>384-dim, cosine similarity</td></tr>
+        <tr><td>Vector index</td><td>FAISS <code>IndexFlatIP</code></td><td>Sub-ms search over 40 docs</td></tr>
+        <tr><td>RAG pipeline</td><td>Retrieve &rarr; Augment &rarr; GPT-2 generate</td><td>End-to-end working</td></tr>
+        <tr><td>Retrieval eval</td><td>MRR + nDCG@5 on labelled queries</td><td>Real quality numbers</td></tr>
+        <tr><td>KV cache bench</td><td><code>use_cache=True</code> vs <code>False</code></td><td>~4x speedup measured</td></tr>
+        <tr><td>Batch inference</td><td>Sequential vs padded batch</td><td>~3-4x throughput gain</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Key Concepts Mastered</h3>
+      <ul style="margin-left:1rem;">
+        <li><strong>RAG vs fine-tuning</strong>: RAG for updatable knowledge; fine-tuning for style/domain adaptation</li>
+        <li><strong>Semantic embeddings</strong>: 384-d vectors where angle encodes meaning, not keywords</li>
+        <li><strong>FAISS IndexFlatIP</strong>: Exact cosine search; swap for IVF/HNSW at million-doc scale</li>
+        <li><strong>L2 normalisation</strong>: Converts dot product to cosine similarity &mdash; magnitude-invariant</li>
+        <li><strong>MRR</strong>: First-hit quality; <strong>nDCG@k</strong>: graded quality across all k positions</li>
+        <li><strong>KV cache</strong>: O(n) vs O(n&sup2;) per token; largest gain on long prompts</li>
+        <li><strong>Batching + left-padding</strong>: 3&ndash;4x GPU throughput; padding side matters for decoder models</li>
+        <li><strong>Continuous batching</strong>: vLLM's PagedAttention eliminates padding waste in production</li>
+      </ul>
+    </div>
+
+    <div class="callout callout-blue">
+      <strong>Day 5 preview: Observability</strong>
+      You'll add logging for latency, token cost, and quality metrics; set up alerting for hallucination rate and retrieval quality drift; and instrument the RAG pipeline built today with production-grade monitoring.
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ── Sidebar toggle ─────────────────────────────────
+const sidebar = document.getElementById('sidebar');
+const toggle  = document.getElementById('sidebarToggle');
+const STORE_KEY = 'sidebar-collapsed-day4';
+
+(function initSidebar() {
+  if (localStorage.getItem(STORE_KEY) === 'true') sidebar.classList.add('collapsed');
+})();
+
+toggle.addEventListener('click', () => {
+  sidebar.classList.toggle('collapsed');
+  localStorage.setItem(STORE_KEY, sidebar.classList.contains('collapsed'));
+});
+
+// ── Scrollspy ──────────────────────────────────────
+const sidebarLinks = document.querySelectorAll('.sidebar a[href^="#"]');
+const sections     = document.querySelectorAll('section[id]');
+
+const spy = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      sidebarLinks.forEach(l => l.classList.remove('active'));
+      const lnk = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+      if (lnk) lnk.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+sections.forEach(s => spy.observe(s));
+
+// ── RAG pipeline animation ─────────────────────────
+const ragStepIds = ['rf-query','rf-embed','rf-faiss','rf-ctx','rf-prompt','rf-llm','rf-answer'];
+let ragTimer = null;
+
+function animateRAG() {
+  if (ragTimer) clearInterval(ragTimer);
+  ragStepIds.forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('lit'); });
+  let i = 0;
+  ragTimer = setInterval(() => {
+    if (i < ragStepIds.length) {
+      const el = document.getElementById(ragStepIds[i]);
+      if (el) el.classList.add('lit');
+      i++;
+    } else {
+      clearInterval(ragTimer);
+      ragTimer = null;
+    }
+  }, 500);
+}
+
+// ── Corpus cluster pulse ───────────────────────────
+function pulseCorpus() {
+  const ids = ['cc-pnr','cc-ssr','cc-gds','cc-fare','cc-reg'];
+  ids.forEach((id, i) => {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.transform = 'scale(1.08)';
+      el.style.boxShadow = '0 4px 16px rgba(0,0,0,.15)';
+      setTimeout(() => { el.style.transform = ''; el.style.boxShadow = ''; }, 500);
+    }, i * 200);
+  });
+}
+
+// ── Vector space canvas ────────────────────────────
+const CLUSTERS = [
+  { name: 'PNR',     color: '#3b82f6', cx: 0.18, cy: 0.25, spread: 0.08 },
+  { name: 'SSR',     color: '#8b5cf6', cx: 0.72, cy: 0.20, spread: 0.07 },
+  { name: 'GDS',     color: '#10b981', cx: 0.55, cy: 0.72, spread: 0.08 },
+  { name: 'Fare',    color: '#f59e0b', cx: 0.22, cy: 0.70, spread: 0.07 },
+  { name: 'Reg',     color: '#14b8a6', cx: 0.80, cy: 0.60, spread: 0.07 },
+];
+
+function seededRand(seed) {
+  let s = seed;
+  return function() { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; };
+}
+
+function drawVectorCanvas(queryPt) {
+  const canvas = document.getElementById('vectorCanvas');
+  if (!canvas) return;
+  const W = canvas.offsetWidth || 600;
+  const H = 260;
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(0, 0, W, H);
+
+  const rng = seededRand(42);
+  const dots = [];
+
+  CLUSTERS.forEach(cl => {
+    for (let i = 0; i < 8; i++) {
+      const angle = rng() * Math.PI * 2;
+      const r = rng() * cl.spread;
+      dots.push({
+        x: (cl.cx + Math.cos(angle) * r) * W,
+        y: (cl.cy + Math.sin(angle) * r) * H,
+        color: cl.color,
+      });
+    }
+  });
+
+  // Draw connection lines to nearest cluster if query point given
+  if (queryPt) {
+    // Find 3 nearest dots
+    const sorted = dots.map((d, i) => ({ d, i, dist: Math.hypot(d.x - queryPt.x, d.y - queryPt.y) }))
+      .sort((a, b) => a.dist - b.dist).slice(0, 3);
+    sorted.forEach(({ d }) => {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(239,68,68,.4)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.moveTo(queryPt.x, queryPt.y);
+      ctx.lineTo(d.x, d.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+  }
+
+  // Draw dots
+  dots.forEach(d => {
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = d.color;
+    ctx.fill();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+
+  // Cluster labels
+  CLUSTERS.forEach(cl => {
+    ctx.fillStyle = cl.color;
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(cl.name, cl.cx * W, (cl.cy - cl.spread - 0.05) * H);
+  });
+
+  // Draw query point
+  if (queryPt) {
+    ctx.beginPath();
+    ctx.arc(queryPt.x, queryPt.y, 9, 0, Math.PI * 2);
+    ctx.fillStyle = '#ef4444';
+    ctx.fill();
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = '#ef4444';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('Query', queryPt.x + 12, queryPt.y + 4);
+  }
+}
+
+let vectorAnimFrame = null;
+let vectorStep = 0;
+
+function animateVectors() {
+  if (vectorAnimFrame) cancelAnimationFrame(vectorAnimFrame);
+  const canvas = document.getElementById('vectorCanvas');
+  if (!canvas) return;
+  const W = canvas.offsetWidth || 600;
+  const H = 260;
+
+  // Query will move from SSR cluster towards PNR cluster (simulating search)
+  const startX = CLUSTERS[1].cx * W;
+  const startY = CLUSTERS[1].cy * H;
+  const steps = 60;
+  vectorStep = 0;
+
+  function step() {
+    const t = vectorStep / steps;
+    const qx = startX;
+    const qy = startY - 0.02 * H; // slightly above SSR cluster
+    drawVectorCanvas({ x: qx * (1 - t) + CLUSTERS[1].cx * W * t, y: qy });
+    vectorStep++;
+    if (vectorStep <= steps) {
+      vectorAnimFrame = requestAnimationFrame(step);
+    }
+  }
+
+  drawVectorCanvas({ x: startX, y: startY - 0.02 * H });
+  vectorAnimFrame = requestAnimationFrame(step);
+}
+
+// Initial draw
+window.addEventListener('DOMContentLoaded', () => drawVectorCanvas(null));
+window.addEventListener('resize', () => drawVectorCanvas(null));
+
+// ── Eval bars animation ────────────────────────────
+function animateEvalBars() {
+  const widths = [87, 94, 91, 63, 100];
+  for (let i = 0; i < 5; i++) {
+    setTimeout(() => {
+      const el = document.getElementById('eb' + i);
+      if (el) el.style.width = widths[i] + '%';
+    }, i * 200);
+  }
+}
+
+// ── KV benchmark animation ─────────────────────────
+function animateKVBenchmark() {
+  const noCache = document.getElementById('kv-bar-nocache');
+  const cache   = document.getElementById('kv-bar-cache');
+  if (noCache) noCache.style.width = '82%';
+  if (cache)   cache.style.width   = '18%';
+}
+
+// Auto-trigger eval bars
+const sec5 = document.getElementById('sec5');
+if (sec5) {
+  const evalObs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) { setTimeout(animateEvalBars, 400); evalObs.disconnect(); }
+  }, { threshold: 0.3 });
+  evalObs.observe(sec5);
+}
+
+// Auto-trigger KV bars
+const sec6 = document.getElementById('sec6');
+if (sec6) {
+  const kvObs = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) { setTimeout(animateKVBenchmark, 400); kvObs.disconnect(); }
+  }, { threshold: 0.3 });
+  kvObs.observe(sec6);
+}
+
+// ── Batch visualization ────────────────────────────
+const BATCH_Q_LABELS = ['PNR fields?','WCHR vs WCBD?','KV cache?','Inventory nesting?','Ghost segments?','Montreal Conv?','Active vs passive?','POS logic?'];
+
+function buildBatchViz() {
+  const seqDiv   = document.getElementById('seq-requests');
+  const batchDiv = document.getElementById('batch-requests');
+  if (!seqDiv || !batchDiv) return;
+
+  seqDiv.innerHTML = '';
+  batchDiv.innerHTML = '';
+
+  BATCH_Q_LABELS.forEach((label, i) => {
+    const el = document.createElement('div');
+    el.id = 'seq-r-' + i;
+    el.style.cssText = 'background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:.25rem .5rem;font-size:.72rem;transition:all .4s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    el.textContent = (i + 1) + '. ' + label;
+    seqDiv.appendChild(el);
+  });
+
+  BATCH_Q_LABELS.forEach((label, i) => {
+    const el = document.createElement('div');
+    el.id = 'bat-r-' + i;
+    el.style.cssText = 'background:#f1f5f9;border:1px solid #e2e8f0;border-radius:4px;padding:.25rem .5rem;font-size:.72rem;transition:all .4s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+    el.textContent = (i + 1) + '. ' + label;
+    batchDiv.appendChild(el);
+  });
+}
+
+function animateBatch() {
+  buildBatchViz();
+
+  // Sequential: light up one by one
+  BATCH_Q_LABELS.forEach((_, i) => {
+    setTimeout(() => {
+      // Reset previous
+      if (i > 0) {
+        const prev = document.getElementById('seq-r-' + (i - 1));
+        if (prev) { prev.style.background = '#d1fae5'; prev.style.borderColor = '#10b981'; }
+      }
+      const el = document.getElementById('seq-r-' + i);
+      if (el) { el.style.background = '#fef3c7'; el.style.borderColor = '#f59e0b'; }
+    }, i * 300);
+  });
+
+  // Batched: all light up simultaneously
+  setTimeout(() => {
+    BATCH_Q_LABELS.forEach((_, i) => {
+      const el = document.getElementById('bat-r-' + i);
+      if (el) { el.style.background = '#dbeafe'; el.style.borderColor = '#3b82f6'; }
+    });
+    setTimeout(() => {
+      BATCH_Q_LABELS.forEach((_, i) => {
+        const el = document.getElementById('bat-r-' + i);
+        if (el) { el.style.background = '#d1fae5'; el.style.borderColor = '#10b981'; }
+      });
+    }, 600);
+  }, 500);
+}
+
+window.addEventListener('DOMContentLoaded', buildBatchViz);
+</script>
+</body>
+</html>
