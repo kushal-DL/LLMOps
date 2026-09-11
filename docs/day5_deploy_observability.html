@@ -1,0 +1,1222 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Day 5: Deploy, Observability &amp; Guardrails &mdash; LLMOps Workshop</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --sidebar-bg: #1e293b;
+      --sidebar-text: #cbd5e1;
+      --accent: #3b82f6;
+      --accent-light: #dbeafe;
+      --accent-dark: #1d4ed8;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --code-bg: #1e293b;
+      --code-text: #e2e8f0;
+      --green: #10b981;
+      --purple: #8b5cf6;
+      --orange: #f59e0b;
+      --red: #ef4444;
+      --teal: #14b8a6;
+      --radius: 12px;
+      --shadow: 0 1px 3px 0 rgb(0 0 0/.1), 0 1px 2px -1px rgb(0 0 0/.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0/.1), 0 4px 6px -4px rgb(0 0 0/.1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg); color: var(--text);
+      display: flex; min-height: 100vh; line-height: 1.65;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 240px; min-width: 240px;
+      background: var(--sidebar-bg); color: var(--sidebar-text);
+      position: sticky; top: 0; height: 100vh;
+      overflow-y: auto; overflow-x: hidden;
+      padding: 1.5rem 1rem;
+      display: flex; flex-direction: column; gap: .15rem;
+      transition: width .25s ease, min-width .25s ease, padding .25s ease;
+    }
+    .sidebar.collapsed { width: 48px; min-width: 48px; padding: 1rem .4rem; overflow: hidden; }
+    .sidebar.collapsed .sidebar-logo,
+    .sidebar.collapsed .sidebar-day,
+    .sidebar.collapsed .sidebar-section,
+    .sidebar.collapsed a span,
+    .sidebar.collapsed a { opacity: 0; pointer-events: none; }
+    .sidebar.collapsed .sidebar-toggle { opacity: 1; pointer-events: auto; }
+
+    .sidebar-toggle {
+      display: flex; align-items: center; justify-content: center;
+      width: 30px; height: 30px; border: none; border-radius: 6px;
+      background: rgba(255,255,255,.1); color: #cbd5e1;
+      cursor: pointer; transition: background .15s;
+      flex-shrink: 0; margin-bottom: .5rem; align-self: flex-end;
+    }
+    .sidebar-toggle:hover { background: rgba(255,255,255,.18); color: white; }
+    .sidebar.collapsed .sidebar-toggle { align-self: center; margin-bottom: 0; opacity: 1 !important; pointer-events: auto !important; }
+
+    .sidebar-logo { font-size: .75rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin-bottom: .75rem; white-space: nowrap; overflow: hidden; transition: opacity .2s; }
+    .sidebar-day  { font-size: .85rem; font-weight: 600; color: #94a3b8; margin-bottom: 1rem; white-space: nowrap; overflow: hidden; transition: opacity .2s; }
+    .sidebar-section { font-size: .7rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #475569; margin: 1rem 0 .35rem .4rem; white-space: nowrap; overflow: hidden; transition: opacity .2s; }
+
+    .sidebar a {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .42rem .6rem; border-radius: 6px; font-size: .82rem;
+      color: var(--sidebar-text); text-decoration: none;
+      white-space: nowrap; overflow: hidden;
+      transition: background .15s, color .15s, opacity .2s;
+    }
+    .sidebar a:hover, .sidebar a.active { background: rgba(59,130,246,.18); color: #93c5fd; }
+    .sidebar a .icon { font-size: 1rem; flex-shrink: 0; }
+
+    /* Main */
+    .main { flex: 1; min-width: 0; padding: 2.5rem clamp(1rem, 4vw, 3rem); max-width: 900px; }
+    section { margin-bottom: 4rem; scroll-margin-top: 2rem; }
+
+    h1 { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 800; line-height: 1.2; margin-bottom: .5rem; }
+    h2 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; padding-bottom: .5rem; border-bottom: 2px solid var(--border); }
+    h3 { font-size: 1.1rem; font-weight: 600; margin: 1.5rem 0 .75rem; }
+    p  { margin-bottom: .9rem; }
+    ul, ol { margin: .75rem 0 .75rem 1.5rem; }
+    li { margin-bottom: .35rem; }
+
+    :not(pre) > code {
+      background: var(--accent-light); color: var(--accent-dark);
+      border-radius: 4px; padding: .15em .4em;
+      font-size: .87em; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    pre {
+      background: var(--code-bg); color: var(--code-text);
+      border-radius: var(--radius); padding: 1.25rem 1.5rem;
+      overflow-x: auto; font-size: .83rem; line-height: 1.6; margin: 1rem 0 1.5rem;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin: 1.25rem 0; box-shadow: var(--shadow); }
+
+    .callout { border-radius: var(--radius); padding: 1rem 1.25rem; margin: 1.25rem 0; border-left: 4px solid; }
+    .callout-blue   { background: #eff6ff; border-color: var(--accent);  color: #1e3a8a; }
+    .callout-green  { background: #f0fdf4; border-color: var(--green);   color: #14532d; }
+    .callout-amber  { background: #fffbeb; border-color: var(--orange);  color: #78350f; }
+    .callout-purple { background: #f5f3ff; border-color: var(--purple);  color: #4c1d95; }
+    .callout-red    { background: #fef2f2; border-color: var(--red);     color: #7f1d1d; }
+    .callout strong { display: block; font-size: .9rem; margin-bottom: .3rem; }
+
+    .table-wrap { overflow-x: auto; margin: 1rem 0 1.5rem; }
+    table { border-collapse: collapse; width: 100%; font-size: .875rem; }
+    th { background: var(--sidebar-bg); color: var(--sidebar-text); text-align: left; padding: .6rem 1rem; font-weight: 600; }
+    td { padding: .55rem 1rem; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    tr:nth-child(even) td { background: #f8fafc; }
+
+    .diagram-container {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem; margin: 1.5rem 0;
+      box-shadow: var(--shadow); overflow: hidden;
+    }
+    .diagram-title { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-muted); margin-bottom: 1rem; }
+
+    /* Hero */
+    .hero {
+      background: linear-gradient(135deg, #0f172a 0%, #1a2e1a 100%);
+      border-radius: 16px; padding: 2.5rem; margin-bottom: 3rem;
+      color: white; position: relative; overflow: hidden;
+    }
+    .hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 70% 50%, rgba(16,185,129,.2) 0%, transparent 60%); }
+    .hero h1 { color: white; position: relative; }
+    .hero-sub { color: #94a3b8; font-size: 1.05rem; margin: .5rem 0 1.5rem; position: relative; }
+    .hero-tags { display: flex; flex-wrap: wrap; gap: .5rem; position: relative; }
+    .hero-tag { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.15); border-radius: 20px; padding: .3rem .85rem; font-size: .8rem; font-weight: 600; }
+    .hero-tag.accent { background: rgba(16,185,129,.3); border-color: rgba(16,185,129,.5); color: #6ee7b7; }
+
+    /* Pipeline steps */
+    .prod-pipeline { display: flex; align-items: stretch; gap: 0; margin: 1rem 0; flex-wrap: nowrap; overflow-x: auto; }
+    .prod-step {
+      flex: 1; min-width: 90px;
+      background: var(--card); border: 1.5px solid var(--border);
+      padding: .75rem .4rem; text-align: center; font-size: .78rem; font-weight: 600;
+      transition: all .4s; position: relative;
+    }
+    .prod-step:first-child { border-radius: 8px 0 0 8px; }
+    .prod-step:last-child  { border-radius: 0 8px 8px 0; }
+    .prod-step + .prod-step { border-left: none; }
+    .prod-step.lit { background: var(--green); color: white; border-color: var(--green); transform: scaleY(1.06); z-index: 1; box-shadow: 0 4px 12px rgba(16,185,129,.35); }
+    .prod-step-icon { font-size: 1.2rem; display: block; margin-bottom: .3rem; }
+    .prod-step-sub  { font-size: .68rem; font-weight: 400; color: var(--text-muted); margin-top: .2rem; }
+    .prod-step.lit .prod-step-sub { color: rgba(255,255,255,.75); }
+
+    /* Checklist items */
+    .checklist-section { margin: 1rem 0; }
+    .checklist-header  { font-size: .85rem; font-weight: 700; color: var(--text); margin-bottom: .5rem; padding: .4rem .75rem; background: var(--bg); border-radius: 6px; border-left: 3px solid var(--accent); }
+    .checklist-item {
+      display: flex; align-items: center; gap: .6rem;
+      padding: .35rem .75rem; font-size: .83rem;
+      border-radius: 4px; transition: background .2s;
+    }
+    .checklist-item:hover { background: #f1f5f9; }
+    .check-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: .75rem; flex-shrink: 0; background: #e2e8f0; color: #94a3b8; transition: all .4s; }
+    .check-icon.done { background: var(--green); color: white; }
+
+    /* Latency bars */
+    .lat-bar-row { display: flex; align-items: center; gap: .75rem; margin-bottom: .5rem; }
+    .lat-bar-label { width: 60px; font-size: .8rem; font-weight: 700; text-align: right; flex-shrink: 0; }
+    .lat-bar-track { flex: 1; height: 22px; background: #f1f5f9; border-radius: 5px; overflow: hidden; }
+    .lat-bar-fill  { height: 100%; border-radius: 5px; display: flex; align-items: center; padding-left: .4rem; font-size: .72rem; font-weight: 700; color: white; transition: width 1s cubic-bezier(.4,0,.2,1); }
+    .lat-bar-val   { min-width: 60px; font-size: .78rem; font-weight: 700; }
+
+    /* Safety row */
+    .safety-row { display: flex; align-items: center; gap: .75rem; padding: .5rem .75rem; border-radius: 6px; margin-bottom: .4rem; font-size: .83rem; }
+    .safety-row.safe    { background: #f0fdf4; }
+    .safety-row.blocked { background: #fef2f2; }
+    .safety-badge { padding: .15rem .5rem; border-radius: 20px; font-size: .72rem; font-weight: 700; flex-shrink: 0; }
+    .safety-badge.safe    { background: var(--green); color: white; }
+    .safety-badge.blocked { background: var(--red); color: white; }
+
+    /* Stat tiles */
+    .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin: 1.25rem 0; }
+    .stat-tile { background: var(--card); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 1.1rem; text-align: center; }
+    .stat-num   { font-size: 1.7rem; font-weight: 800; }
+    .stat-label { font-size: .78rem; color: var(--text-muted); margin-top: .2rem; }
+
+    /* Day journey grid */
+    .day-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: .75rem; margin: 1.25rem 0; }
+    .day-tile {
+      background: var(--card); border: 1.5px solid var(--border); border-radius: 10px;
+      padding: .9rem .6rem; text-align: center; font-size: .75rem;
+      transition: all .4s; cursor: default;
+    }
+    .day-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+    .day-tile-num  { font-size: 1.2rem; font-weight: 800; margin-bottom: .3rem; }
+    .day-tile-name { font-size: .7rem; font-weight: 600; color: var(--text-muted); }
+
+    canvas { display: block; width: 100%; border-radius: 8px; }
+
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .sidebar { width: 100%; min-width: 100%; height: auto; position: relative; }
+      .main { padding: 1.5rem 1rem; }
+      .day-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="sidebar" id="sidebar">
+  <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+      <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
+
+  <div class="sidebar-logo">LLMOps Workshop</div>
+  <div class="sidebar-day">Day 5: Deploy &amp; Observe</div>
+
+  <div class="sidebar-section">Overview</div>
+  <a href="#big-picture"><span class="icon">&#128640;</span><span>Big Picture</span></a>
+
+  <div class="sidebar-section">Sections</div>
+  <a href="#sec1"><span class="icon">&#128736;</span><span>1. Environment Setup</span></a>
+  <a href="#sec2"><span class="icon">&#10003;</span><span>2. Model Validation</span></a>
+  <a href="#sec3"><span class="icon">&#128202;</span><span>3. Metrics Logger</span></a>
+  <a href="#sec4"><span class="icon">&#128137;</span><span>4. Cost &amp; Latency</span></a>
+  <a href="#sec5"><span class="icon">&#128737;</span><span>5. Safety Guardrails</span></a>
+  <a href="#sec6"><span class="icon">&#128640;</span><span>6. FastAPI Service</span></a>
+  <a href="#sec7"><span class="icon">&#9989;</span><span>7. Prod Checklist</span></a>
+
+  <div class="sidebar-section">Wrap-up</div>
+  <a href="#summary"><span class="icon">&#127942;</span><span>Summary &amp; Recap</span></a>
+</nav>
+
+<main class="main" id="mainContent">
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Day 5: Deploy, Observability &amp; Guardrails</h1>
+    <p class="hero-sub">Production Deployment &middot; Validation &middot; Metrics &middot; Monitoring &middot; Safety</p>
+    <div class="hero-tags">
+      <span class="hero-tag">~2.5 hours</span>
+      <span class="hero-tag">T4 GPU</span>
+      <span class="hero-tag accent">FastAPI service</span>
+      <span class="hero-tag accent">Safety guardrails</span>
+      <span class="hero-tag">Workshop finale</span>
+    </div>
+  </div>
+
+  <!-- Big Picture -->
+  <section id="big-picture">
+    <h2>&#128640; Big Picture: Production-Ready LLM Service</h2>
+    <p>Day 5 closes the loop: you've built, fine-tuned, and optimised a model across four days. Today you wrap it in a production service &mdash; with validation gates before deploy, real-time metrics once live, cost tracking, and safety filters that intercept harmful inputs and outputs.</p>
+
+    <div class="diagram-container">
+      <div class="diagram-title">Production deployment pipeline &mdash; click to step through</div>
+      <div class="prod-pipeline" id="prodPipeline">
+        <div class="prod-step" id="pp-validate">
+          <span class="prod-step-icon">&#10003;</span>
+          Validate
+          <div class="prod-step-sub">structure, forward pass, memory</div>
+        </div>
+        <div class="prod-step" id="pp-guard">
+          <span class="prod-step-icon">&#128737;</span>
+          Guardrails
+          <div class="prod-step-sub">input/output filters</div>
+        </div>
+        <div class="prod-step" id="pp-api">
+          <span class="prod-step-icon">&#128640;</span>
+          FastAPI
+          <div class="prod-step-sub">REST endpoints</div>
+        </div>
+        <div class="prod-step" id="pp-metrics">
+          <span class="prod-step-icon">&#128202;</span>
+          Metrics
+          <div class="prod-step-sub">latency, cost, P99</div>
+        </div>
+        <div class="prod-step" id="pp-dash">
+          <span class="prod-step-icon">&#128137;</span>
+          Dashboard
+          <div class="prod-step-sub">real-time monitoring</div>
+        </div>
+        <div class="prod-step" id="pp-alert">
+          <span class="prod-step-icon">&#128276;</span>
+          Alerts
+          <div class="prod-step-sub">SLA breaches</div>
+        </div>
+        <div class="prod-step" id="pp-scale">
+          <span class="prod-step-icon">&#9650;</span>
+          Scale
+          <div class="prod-step-sub">autoscaling &amp; load balance</div>
+        </div>
+      </div>
+      <button onclick="stepProdPipeline()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--green);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Step Through</button>
+    </div>
+
+    <div class="callout callout-green">
+      <strong>Why observability is not optional</strong>
+      A model that works on a benchmark can silently degrade in production &mdash; prompts shift, retrieval quality drifts, latency spikes under load. Without metrics you only discover failures when users complain. Observability means you see degradation <em>before</em> users do.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Step</th><th>What it does</th></tr>
+        <tr><td>Model Validation</td><td>Gates deploy: structure check, forward pass, NaN/Inf detection, memory check</td></tr>
+        <tr><td>Metrics Logger</td><td>Time-series store for latency, tokens, cost per request (sliding window, 1000 req)</td></tr>
+        <tr><td>Cost &amp; Latency Dashboard</td><td>P50/P95/P99 latency, total spend, throughput, uptime &mdash; rendered in real time</td></tr>
+        <tr><td>Safety Guardrails</td><td>Keyword filter on input + output; rate limiting; blocked request logging</td></tr>
+        <tr><td>FastAPI Skeleton</td><td>POST /generate, GET /health, GET /metrics &mdash; production REST service template</td></tr>
+        <tr><td>Production Checklist</td><td>25-item gate covering validation, observability, safety, and deployment readiness</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- Section 1 -->
+  <section id="sec1">
+    <h2>1. Environment Setup &amp; Imports</h2>
+    <p>Day 5 uses only standard library packages already available in the Kaggle environment &mdash; no additional installs needed. The key primitives are <code>deque</code> for bounded time-series windows and <code>defaultdict</code> for per-user rate-limit tracking.</p>
+
+    <pre><code>import warnings; warnings.filterwarnings('ignore')
+
+import torch, torch.nn as nn, numpy as np
+import json, time
+from datetime import datetime, timedelta
+from collections import deque, defaultdict
+import hashlib
+from pathlib import Path
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+torch.manual_seed(42); np.random.seed(42)
+
+print(f"Device: {device}")
+if torch.cuda.is_available():
+    print(f"GPU: {torch.cuda.get_device_name(0)}")
+    print(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB")
+    torch.cuda.reset_peak_memory_stats()</code></pre>
+
+    <div class="callout callout-blue">
+      <strong><code>deque(maxlen=1000)</code> as a metrics window</strong>
+      Python's <code>deque</code> with <code>maxlen</code> automatically evicts the oldest entry when the capacity is reached &mdash; perfect for a rolling window of the last N requests. It's O(1) append and O(1) pop, unlike a list which would be O(n) for pop-left.
+    </div>
+  </section>
+
+  <!-- Section 2 -->
+  <section id="sec2">
+    <h2>2. Model Validation &amp; Compatibility</h2>
+    <p>Before deploying any model, a <strong>ModelValidator</strong> runs a battery of automated checks. Anything that fails blocks the deploy &mdash; this is the first production gate in the pipeline.</p>
+
+    <pre><code>class ModelValidator:
+    def __init__(self):
+        self.checks_passed = []
+        self.checks_failed = []
+
+    def validate_model_structure(self, model):
+        """Check model is nn.Module with trainable parameters"""
+        assert isinstance(model, nn.Module)
+        assert sum(p.numel() for p in model.parameters()) > 0
+        self.checks_passed.append("Model structure valid")
+
+    def validate_forward_pass(self, model, input_shape, device):
+        """Run a dummy forward pass, detect NaN/Inf"""
+        dummy = torch.randn(input_shape).to(device)
+        with torch.no_grad():
+            out = model(dummy)
+        assert not torch.isnan(out).any(), "NaN values in output"
+        assert not torch.isinf(out).any(), "Inf values in output"
+        self.checks_passed.append(f"Forward pass OK (output: {tuple(out.shape)})")
+
+    def validate_determinism(self, model, input_shape, device, runs=3):
+        """Same input produces same output across multiple runs"""
+        x = torch.randn(input_shape).to(device)
+        outs = [model(x).cpu() for _ in range(runs)]
+        max_diff = max((outs[0] - outs[i]).abs().max() for i in range(1, runs))
+        assert max_diff < 1e-5, f"Non-deterministic: max_diff={max_diff}"
+        self.checks_passed.append("Deterministic outputs")
+
+    def validate_memory(self, model, device):
+        """Ensure model fits in 80% of available VRAM"""
+        if torch.cuda.is_available():
+            total = torch.cuda.get_device_properties(0).total_memory / 1e9
+            used  = sum(p.numel() * 4 for p in model.parameters()) / 1e9
+            assert used < total * 0.8, f"Too large: {used:.2f}GB / {total:.2f}GB"
+        self.checks_passed.append("Memory OK")
+
+    def get_report(self):
+        status = "APPROVED" if not self.checks_failed else "NEEDS ATTENTION"
+        return {'status': status,
+                'passed': self.checks_passed,
+                'failed': self.checks_failed}</code></pre>
+
+    <!-- Validation checks animated diagram -->
+    <div class="diagram-container">
+      <div class="diagram-title">Validation gate &mdash; click to run checks</div>
+      <div id="validationChecks" style="display:flex;flex-direction:column;gap:.4rem;">
+        <div class="checklist-item" id="vc-struct">
+          <div class="check-icon" id="vci-struct">?</div>
+          <span>Model structure &mdash; <code>isinstance(model, nn.Module)</code>, parameters &gt; 0</span>
+        </div>
+        <div class="checklist-item" id="vc-fwd">
+          <div class="check-icon" id="vci-fwd">?</div>
+          <span>Forward pass &mdash; dummy input runs, no NaN or Inf in output</span>
+        </div>
+        <div class="checklist-item" id="vc-det">
+          <div class="check-icon" id="vci-det">?</div>
+          <span>Determinism &mdash; 3 identical forward passes produce identical outputs (&lt;1e-5 diff)</span>
+        </div>
+        <div class="checklist-item" id="vc-mem">
+          <div class="check-icon" id="vci-mem">?</div>
+          <span>Memory &mdash; model &lt; 80% of available VRAM</span>
+        </div>
+      </div>
+      <div id="validationStatus" style="margin-top:1rem;padding:.6rem 1rem;border-radius:8px;font-size:.88rem;font-weight:700;background:#f1f5f9;color:var(--text-muted);">
+        Click to run validation checks...
+      </div>
+      <button onclick="animateValidation()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--green);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Run Validation</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Check</th><th>What it catches</th><th>Deploy decision</th></tr>
+        <tr><td>Structure</td><td>Accidentally passed a dict, path, or config instead of a model</td><td>Block if fails</td></tr>
+        <tr><td>Forward pass</td><td>Missing layers, shape mismatches, wrong dtype, NaN from bad init</td><td>Block if fails</td></tr>
+        <tr><td>Determinism</td><td>Models with stochastic dropout or sampling not turned off for eval mode</td><td>Warn if fails</td></tr>
+        <tr><td>Memory</td><td>Model too large for available VRAM &mdash; would OOM under real load</td><td>Block if fails</td></tr>
+      </table>
+    </div>
+
+    <div class="callout callout-amber">
+      <strong>Why check determinism?</strong>
+      Batch norm and dropout layers behave differently in <code>train()</code> vs <code>eval()</code> mode. A model served without <code>model.eval()</code> will produce different outputs on identical inputs, making debugging impossible. Determinism checks surface this class of error before deploy.
+    </div>
+  </section>
+
+  <!-- Section 3 -->
+  <section id="sec3">
+    <h2>3. Comprehensive Metrics Logger</h2>
+    <p>The <code>MetricsLogger</code> maintains a bounded sliding window of the last 1000 requests. It records per-request latency, token counts, and cost, then computes percentile statistics on demand.</p>
+
+    <pre><code>class MetricsLogger:
+    def __init__(self, window_size=1000):
+        self.metrics = defaultdict(lambda: deque(maxlen=window_size))
+        self.start_time = datetime.now()
+
+    def log_request(self, request_id, input_tokens, output_tokens, latency_ms, cost_usd):
+        self.metrics['request_ids'].append(request_id)
+        self.metrics['input_tokens'].append(input_tokens)
+        self.metrics['output_tokens'].append(output_tokens)
+        self.metrics['latency_ms'].append(latency_ms)
+        self.metrics['cost_usd'].append(cost_usd)
+        self.metrics['timestamp'].append(datetime.now())
+
+    def get_percentile(self, values, p):
+        sorted_vals = sorted(values)
+        idx = int(len(sorted_vals) * p / 100)
+        return sorted_vals[min(idx, len(sorted_vals) - 1)]
+
+    def get_summary(self):
+        latencies = list(self.metrics['latency_ms'])
+        costs     = list(self.metrics['cost_usd'])
+        tokens    = [i + o for i, o in zip(
+                       self.metrics['input_tokens'], self.metrics['output_tokens'])]
+        return {
+            'requests_total':          len(latencies),
+            'latency_p50':             self.get_percentile(latencies, 50),
+            'latency_p95':             self.get_percentile(latencies, 95),
+            'latency_p99':             self.get_percentile(latencies, 99),
+            'cost_total_usd':          sum(costs),
+            'cost_per_request':        sum(costs) / len(costs) if costs else 0,
+            'throughput_tokens_per_sec': sum(tokens) / (sum(latencies) / 1000),
+            'uptime':                  (datetime.now() - self.start_time).total_seconds() / 3600,
+        }
+
+# Simulate 100 requests
+logger = MetricsLogger(window_size=1000)
+for i in range(100):
+    input_toks  = np.random.randint(10, 50)
+    output_toks = np.random.randint(20, 100)
+    latency_ms  = max(np.random.normal(150, 50), 10)
+    cost_usd    = (input_toks + output_toks) * 0.000002   # $2 / 1M tokens
+    logger.log_request(f'req_{i}', input_toks, output_toks, latency_ms, cost_usd)</code></pre>
+
+    <!-- Latency histogram canvas -->
+    <div class="diagram-container">
+      <div class="diagram-title">Simulated Latency Distribution (100 requests, mean 150ms, &sigma; 50ms)</div>
+      <canvas id="latencyCanvas" height="180"></canvas>
+      <div style="display:flex;gap:1.5rem;margin-top:.75rem;flex-wrap:wrap;font-size:.8rem;">
+        <div><span style="background:var(--accent);display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:4px;vertical-align:middle;"></span>Request count per bin</div>
+        <div><span style="background:#ef4444;display:inline-block;width:2px;height:12px;margin-right:4px;vertical-align:middle;"></span>P50 &nbsp; <span style="background:#f59e0b;display:inline-block;width:2px;height:12px;margin-right:4px;vertical-align:middle;"></span>P95 &nbsp; <span style="background:#8b5cf6;display:inline-block;width:2px;height:12px;margin-right:4px;vertical-align:middle;"></span>P99</div>
+      </div>
+    </div>
+
+    <!-- Metrics stat tiles -->
+    <div class="diagram-container">
+      <div class="diagram-title">MetricsLogger output summary</div>
+      <div class="stat-grid">
+        <div class="stat-tile">
+          <div class="stat-num" style="color:var(--accent);">100</div>
+          <div class="stat-label">Requests logged</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-num" style="color:var(--green);" id="m-p50">~150 ms</div>
+          <div class="stat-label">Latency P50</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-num" style="color:var(--orange);" id="m-p95">~230 ms</div>
+          <div class="stat-label">Latency P95</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-num" style="color:var(--red);" id="m-p99">~270 ms</div>
+          <div class="stat-label">Latency P99</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-num" style="color:var(--purple);">$0.0001</div>
+          <div class="stat-label">Cost / request</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-num" style="color:var(--teal);">~450</div>
+          <div class="stat-label">Tokens / sec</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Metric</th><th>Why percentiles, not averages?</th></tr>
+        <tr><td><strong>P50 (median)</strong></td><td>Typical user experience &mdash; unaffected by extreme outliers</td></tr>
+        <tr><td><strong>P95</strong></td><td>95th percentile: what the worst 5% of users experience. Common SLA target.</td></tr>
+        <tr><td><strong>P99</strong></td><td>Tail latency: what the worst 1% see. Dominated by GC pauses, GPU preemption, cold cache misses.</td></tr>
+        <tr><td><strong>Mean</strong></td><td>Misleading when distribution is skewed &mdash; a few 5-second requests can inflate the mean by 50x</td></tr>
+      </table>
+    </div>
+
+    <div class="callout callout-purple">
+      <strong>Cost formula: $2 per million tokens</strong>
+      <code>cost_usd = (input_tokens + output_tokens) * 0.000002</code>. This mirrors typical API pricing (Claude Haiku, GPT-3.5-turbo). For a self-hosted model, replace with actual GPU cost: <code>GPU_cost_per_hour / (tokens_per_hour)</code>.
+    </div>
+  </section>
+
+  <!-- Section 4 -->
+  <section id="sec4">
+    <h2>4. Cost &amp; Latency Dashboard</h2>
+    <p>The <code>Dashboard</code> class renders the metrics summary into a human-readable view. In production this maps to a Grafana panel, Datadog dashboard, or custom web UI &mdash; the underlying summary dict is the same.</p>
+
+    <pre><code>class Dashboard:
+    def render_latency_histogram(self, latencies):
+        bins = [0, 50, 100, 150, 200, 300, 500, 1000]
+        counts = [0] * (len(bins) - 1)
+        for lat in latencies:
+            for i in range(len(bins) - 1):
+                if bins[i] <= lat < bins[i + 1]:
+                    counts[i] += 1
+                    break
+        return counts
+
+    def render_dashboard(self, metrics_summary):
+        print("┌─ PRODUCTION DASHBOARD ─────────────────────┐")
+        print(f"│ Requests:   {metrics_summary['requests_total']:>30} │")
+        print(f"│ Uptime (h): {metrics_summary['uptime']:>30.2f} │")
+        print(f"│ P50:        {metrics_summary['latency_p50']:>30.1f} ms │")
+        print(f"│ P95:        {metrics_summary['latency_p95']:>30.1f} ms │")
+        print(f"│ P99:        {metrics_summary['latency_p99']:>30.1f} ms │")
+        print(f"│ Tokens/s:   {metrics_summary['throughput_tokens_per_sec']:>30.1f} │")
+        print(f"│ Cost/Req:   ${metrics_summary['cost_per_request']:>29.6f} │")
+        print("│ STATUS: HEALTHY                            │")
+        print("└────────────────────────────────────────────┘")</code></pre>
+
+    <!-- Live dashboard simulation -->
+    <div class="diagram-container">
+      <div class="diagram-title">Live dashboard simulation (animated)</div>
+      <div style="background:#0f172a;border-radius:10px;padding:1.25rem;font-family:'JetBrains Mono','Fira Code',monospace;font-size:.82rem;color:#e2e8f0;">
+        <div style="color:#94a3b8;margin-bottom:.5rem;">&#9632; PRODUCTION DASHBOARD &nbsp;&nbsp;&nbsp; <span id="dash-status" style="color:var(--green);">&#9679; HEALTHY</span></div>
+        <div style="height:1px;background:#334155;margin:.5rem 0;"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .75rem;margin-top:.5rem;">
+          <div style="color:#64748b;">Requests:</div><div id="dd-req" style="color:white;">0</div>
+          <div style="color:#64748b;">Uptime (h):</div><div id="dd-uptime" style="color:white;">0.000</div>
+          <div style="color:#64748b;">P50 latency:</div><div id="dd-p50" style="color:#10b981;">0 ms</div>
+          <div style="color:#64748b;">P95 latency:</div><div id="dd-p95" style="color:#f59e0b;">0 ms</div>
+          <div style="color:#64748b;">P99 latency:</div><div id="dd-p99" style="color:#ef4444;">0 ms</div>
+          <div style="color:#64748b;">Tokens/s:</div><div id="dd-tps" style="color:#3b82f6;">0</div>
+          <div style="color:#64748b;">Cost/req:</div><div id="dd-cost" style="color:#8b5cf6;">$0.000000</div>
+          <div style="color:#64748b;">Total cost:</div><div id="dd-total" style="color:white;">$0.0000</div>
+        </div>
+      </div>
+      <button onclick="animateDashboard()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Start Live Updates</button>
+    </div>
+
+    <div class="callout callout-blue">
+      <strong>Connecting to Grafana</strong>
+      In production, expose the <code>get_summary()</code> dict via the <code>GET /metrics</code> endpoint in Prometheus format. Grafana's Prometheus datasource then polls it every 15 seconds. The same percentile math drives your SLA alerting rules &mdash; e.g., alert when P99 &gt; 2000ms for 5 consecutive minutes.
+    </div>
+  </section>
+
+  <!-- Section 5 -->
+  <section id="sec5">
+    <h2>5. Safety Guardrails &amp; Content Filtering</h2>
+    <p>The <code>SafetyGuardrails</code> class implements three layers of protection: keyword-based input filtering, output pattern checking, and per-user rate limiting. These are entry and exit gates around every inference call.</p>
+
+    <pre><code>class SafetyGuardrails:
+    def __init__(self):
+        self.blocked_keywords = [
+            'malware', 'exploit', 'hack', 'crack',
+            'illegal', 'bomb', 'violence', 'abuse'
+        ]
+
+    def check_input(self, text):
+        """Block on keywords and length"""
+        text_lower = str(text).lower()
+        for kw in self.blocked_keywords:
+            if kw in text_lower:
+                return False, f"Blocked keyword: {kw}"
+        if len(text) > 10000:
+            return False, "Input exceeds max length"
+        return True, "Input safe"
+
+    def check_output(self, text):
+        """Flag dangerous instruction patterns"""
+        text_lower = str(text).lower()
+        risky = ['how to make', 'instructions for', 'step by step']
+        for pattern in risky:
+            if pattern in text_lower:
+                for kw in self.blocked_keywords:
+                    if kw in text_lower:
+                        return False, f"Pattern + keyword: '{pattern}' + '{kw}'"
+        return True, "Output safe"
+
+    def rate_limit_check(self, user_id, request_history, max_rpm=10):
+        """Allow max 10 requests per user per minute"""
+        now = datetime.now()
+        one_min_ago = now - timedelta(minutes=1)
+        recent = [t for t in request_history.get(user_id, []) if t > one_min_ago]
+        if len(recent) >= max_rpm:
+            return False, f"Rate limit: {len(recent)}/{max_rpm} rpm"
+        return True, "Within limits"</code></pre>
+
+    <!-- Safety filter demo -->
+    <div class="diagram-container">
+      <div class="diagram-title">Safety filter live demo (click any row)</div>
+      <div id="safetyDemo" style="display:flex;flex-direction:column;gap:.35rem;">
+        <div class="safety-row safe" onclick="runSafetyCheck(this,'What is machine learning?',true,'Input safe')" style="cursor:pointer;">
+          <div class="safety-badge safe" id="sb0">&#10003;</div>
+          <span>"What is machine learning?"</span>
+        </div>
+        <div class="safety-row blocked" onclick="runSafetyCheck(this,'How to make malware',false,'Blocked keyword: malware')" style="cursor:pointer;">
+          <div class="safety-badge blocked" id="sb1">&#10007;</div>
+          <span>"How to make malware"</span>
+        </div>
+        <div class="safety-row safe" onclick="runSafetyCheck(this,'Tell me about Python programming',true,'Input safe')" style="cursor:pointer;">
+          <div class="safety-badge safe" id="sb2">&#10003;</div>
+          <span>"Tell me about Python programming"</span>
+        </div>
+        <div class="safety-row blocked" onclick="runSafetyCheck(this,'Here are instructions for making a bomb',false,'Pattern + keyword: instructions for + bomb')" style="cursor:pointer;">
+          <div class="safety-badge blocked" id="sb3">&#10007;</div>
+          <span>"Here are instructions for making a bomb" (output check)</span>
+        </div>
+        <div class="safety-row safe" onclick="runSafetyCheck(this,'Explain PNR structure to a junior agent',true,'Input safe')" style="cursor:pointer;">
+          <div class="safety-badge safe" id="sb4">&#10003;</div>
+          <span>"Explain PNR structure to a junior agent"</span>
+        </div>
+      </div>
+      <div id="safetyResult" style="margin-top:.75rem;padding:.6rem .9rem;border-radius:6px;font-size:.83rem;background:#f8fafc;color:var(--text-muted);">
+        Click a row to see the safety check result...
+      </div>
+    </div>
+
+    <h3>Rate Limiting</h3>
+    <pre><code># Simulate a user who has made 8 requests in the last minute
+user_history = {
+    'user1': [datetime.now() - timedelta(seconds=i * 5) for i in range(8)]
+}
+
+guardrails = SafetyGuardrails()
+is_allowed, reason = guardrails.rate_limit_check('user1', user_history)
+# is_allowed = True (8 < 10)
+
+# At request 11:
+is_allowed, reason = guardrails.rate_limit_check('user1', user_history_with_10)
+# is_allowed = False, reason = "Rate limit: 10/10 rpm"</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Layer</th><th>Where applied</th><th>What it catches</th></tr>
+        <tr><td>Input keyword filter</td><td>Before inference</td><td>Harmful prompts; prevents GPU time waste on blocked requests</td></tr>
+        <tr><td>Output pattern check</td><td>After inference</td><td>Jailbreaks that produce harmful content despite a clean prompt</td></tr>
+        <tr><td>Rate limiter</td><td>Per-request, per-user</td><td>Abuse, DDoS, runaway scripts; cost protection</td></tr>
+        <tr><td>Length limit</td><td>Before inference</td><td>Context-window overflow; prevents extremely long inputs from DoS-ing the service</td></tr>
+      </table>
+    </div>
+
+    <div class="callout callout-red">
+      <strong>Limitations of keyword-based filtering</strong>
+      Keyword filters are fast and auditable, but brittle. Adversarial users can bypass them with synonyms ("expl0it", "h@ck"), base64 encoding, or role-play framing. Production systems layer multiple approaches: regex, classifier models (e.g. OpenAI Moderation API), and semantic similarity to known harmful prompts. The keyword filter here is a first line of defence, not a complete solution.
+    </div>
+  </section>
+
+  <!-- Section 6 -->
+  <section id="sec6">
+    <h2>6. FastAPI Service Skeleton</h2>
+    <p>The notebook prints a complete FastAPI service template &mdash; every component built in this session wired together into a production REST API. Three endpoints cover the minimal viable service: generate, health check, and metrics export.</p>
+
+    <pre><code>from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+app = FastAPI(title="LLM Service", version="1.0.0")
+
+class GenerationRequest(BaseModel):
+    prompt: str
+    max_tokens: int = 100
+    temperature: float = 0.7
+
+class GenerationResponse(BaseModel):
+    generated_text: str
+    tokens_generated: int
+    latency_ms: float
+
+@app.on_event("startup")
+async def startup():
+    global model, tokenizer, metrics_logger, guardrails
+    # Load model and dependencies here
+    pass
+
+@app.post("/generate", response_model=GenerationResponse)
+async def generate(request: GenerationRequest):
+    # 1. Input safety gate
+    is_safe, reason = guardrails.check_input(request.prompt)
+    if not is_safe:
+        raise HTTPException(status_code=400, detail=reason)
+
+    start = time.time()
+
+    # 2. Inference
+    tokens = tokenizer.encode(request.prompt)
+    with torch.no_grad():
+        output = model.generate(tokens, max_tokens=request.max_tokens)
+    generated_text = tokenizer.decode(output)
+
+    # 3. Output safety gate
+    is_safe, reason = guardrails.check_output(generated_text)
+    if not is_safe:
+        generated_text = "[Content filtered]"
+
+    latency_ms = (time.time() - start) * 1000
+
+    # 4. Log metrics
+    metrics_logger.log_request(
+        request_id=str(uuid.uuid4()),
+        input_tokens=len(tokens),
+        output_tokens=len(tokenizer.encode(generated_text)),
+        latency_ms=latency_ms,
+        cost_usd=0.00002,
+    )
+    return GenerationResponse(generated_text=generated_text,
+                              tokens_generated=len(tokenizer.encode(generated_text)),
+                              latency_ms=latency_ms)
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy", "model": "loaded"}
+
+@app.get("/metrics")
+async def get_metrics():
+    return metrics_logger.get_summary()</code></pre>
+
+    <!-- Request lifecycle diagram -->
+    <div class="diagram-container">
+      <div class="diagram-title">Request lifecycle through the service</div>
+      <div id="reqLifecycle" style="display:flex;flex-direction:column;gap:0;">
+        <div id="rl-in" style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;border:1.5px solid var(--border);border-radius:8px 8px 0 0;background:var(--card);transition:all .4s;">
+          <span style="font-size:1rem;">&#8594;</span>
+          <div>
+            <strong style="font-size:.83rem;">POST /generate</strong>
+            <div style="font-size:.75rem;color:var(--text-muted);">Pydantic validates request shape, types, and defaults</div>
+          </div>
+        </div>
+        <div style="text-align:center;font-size:1rem;color:var(--text-muted);padding:.2rem;">&#8595;</div>
+        <div id="rl-guard-in" style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;border:1.5px solid var(--border);border-top:none;background:var(--card);transition:all .4s;">
+          <span style="font-size:1rem;">&#128737;</span>
+          <div>
+            <strong style="font-size:.83rem;">Input guardrail</strong>
+            <div style="font-size:.75rem;color:var(--text-muted);">Keyword filter + length limit. HTTP 400 if blocked.</div>
+          </div>
+        </div>
+        <div style="text-align:center;font-size:1rem;color:var(--text-muted);padding:.2rem;">&#8595;</div>
+        <div id="rl-infer" style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;border:1.5px solid var(--border);border-top:none;background:var(--card);transition:all .4s;">
+          <span style="font-size:1rem;">&#129302;</span>
+          <div>
+            <strong style="font-size:.83rem;">Inference</strong>
+            <div style="font-size:.75rem;color:var(--text-muted);">tokenize &rarr; model.generate() &rarr; decode</div>
+          </div>
+        </div>
+        <div style="text-align:center;font-size:1rem;color:var(--text-muted);padding:.2rem;">&#8595;</div>
+        <div id="rl-guard-out" style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;border:1.5px solid var(--border);border-top:none;background:var(--card);transition:all .4s;">
+          <span style="font-size:1rem;">&#128737;</span>
+          <div>
+            <strong style="font-size:.83rem;">Output guardrail</strong>
+            <div style="font-size:.75rem;color:var(--text-muted);">Pattern + keyword check. Replace with "[Content filtered]" if blocked.</div>
+          </div>
+        </div>
+        <div style="text-align:center;font-size:1rem;color:var(--text-muted);padding:.2rem;">&#8595;</div>
+        <div id="rl-log" style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;border:1.5px solid var(--border);border-top:none;background:var(--card);transition:all .4s;">
+          <span style="font-size:1rem;">&#128202;</span>
+          <div>
+            <strong style="font-size:.83rem;">Metrics log</strong>
+            <div style="font-size:.75rem;color:var(--text-muted);">latency_ms, tokens, cost_usd &rarr; MetricsLogger</div>
+          </div>
+        </div>
+        <div style="text-align:center;font-size:1rem;color:var(--text-muted);padding:.2rem;">&#8595;</div>
+        <div id="rl-out" style="display:flex;align-items:center;gap:.75rem;padding:.6rem .9rem;border:1.5px solid var(--border);border-top:none;border-radius:0 0 8px 8px;background:var(--card);transition:all .4s;">
+          <span style="font-size:1rem;">&#8592;</span>
+          <div>
+            <strong style="font-size:.83rem;">GenerationResponse</strong>
+            <div style="font-size:.75rem;color:var(--text-muted);">generated_text, tokens_generated, latency_ms</div>
+          </div>
+        </div>
+      </div>
+      <button onclick="animateRequestLifecycle()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--accent);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Animate Request</button>
+    </div>
+
+    <div class="callout callout-green">
+      <strong>Deployment options</strong>
+      The same FastAPI app can be wrapped in Docker and deployed to Kubernetes (with HPA for autoscaling), AWS Lambda (container image), Google Cloud Run (serverless), or a bare GPU server. The startup event loads the model once; all subsequent requests share it in-process.
+    </div>
+
+    <pre><code># Launch locally
+$ uvicorn app:app --host 0.0.0.0 --port 8000
+
+# Docker build
+$ docker build -t llm-service .
+$ docker run -p 8000:8000 --gpus all llm-service
+
+# Test health endpoint
+$ curl http://localhost:8000/health
+{"status": "healthy", "model": "loaded"}</code></pre>
+  </section>
+
+  <!-- Section 7: Checklist -->
+  <section id="sec7">
+    <h2>7. Production Deployment Checklist</h2>
+    <p>A 25-item gate across five categories. Every item maps to a concrete engineering decision you've made in this workshop. Green = done; missing any item = known production risk.</p>
+
+    <div class="diagram-container">
+      <div class="diagram-title">Deployment readiness gate &mdash; click to verify</div>
+      <div id="deployChecklist">
+        <div class="checklist-section">
+          <div class="checklist-header">&#10003; Model Validation</div>
+          <div class="checklist-item"><div class="check-icon" id="dc0">?</div>Model structure validated</div>
+          <div class="checklist-item"><div class="check-icon" id="dc1">?</div>Forward pass verified</div>
+          <div class="checklist-item"><div class="check-icon" id="dc2">?</div>Deterministic outputs</div>
+          <div class="checklist-item"><div class="check-icon" id="dc3">?</div>Memory requirements OK</div>
+          <div class="checklist-item"><div class="check-icon" id="dc4">?</div>Quantization applied (optional)</div>
+        </div>
+        <div class="checklist-section">
+          <div class="checklist-header">&#128640; Service Setup</div>
+          <div class="checklist-item"><div class="check-icon" id="dc5">?</div>FastAPI service created</div>
+          <div class="checklist-item"><div class="check-icon" id="dc6">?</div>Request / response validation</div>
+          <div class="checklist-item"><div class="check-icon" id="dc7">?</div>Error handling</div>
+          <div class="checklist-item"><div class="check-icon" id="dc8">?</div>Logging configured</div>
+          <div class="checklist-item"><div class="check-icon" id="dc9">?</div>Docker image built</div>
+        </div>
+        <div class="checklist-section">
+          <div class="checklist-header">&#128202; Observability</div>
+          <div class="checklist-item"><div class="check-icon" id="dc10">?</div>Metrics logger implemented</div>
+          <div class="checklist-item"><div class="check-icon" id="dc11">?</div>Latency tracking (P50, P95, P99)</div>
+          <div class="checklist-item"><div class="check-icon" id="dc12">?</div>Cost tracking per request</div>
+          <div class="checklist-item"><div class="check-icon" id="dc13">?</div>Health check endpoint</div>
+          <div class="checklist-item"><div class="check-icon" id="dc14">?</div>Metrics export for Prometheus</div>
+        </div>
+        <div class="checklist-section">
+          <div class="checklist-header">&#128737; Safety &amp; Security</div>
+          <div class="checklist-item"><div class="check-icon" id="dc15">?</div>Input content filtering</div>
+          <div class="checklist-item"><div class="check-icon" id="dc16">?</div>Output safety checks</div>
+          <div class="checklist-item"><div class="check-icon" id="dc17">?</div>Rate limiting</div>
+          <div class="checklist-item"><div class="check-icon" id="dc18">?</div>Authentication / Authorization</div>
+          <div class="checklist-item"><div class="check-icon" id="dc19">?</div>HTTPS enabled</div>
+        </div>
+        <div class="checklist-section">
+          <div class="checklist-header">&#9650; Deployment</div>
+          <div class="checklist-item"><div class="check-icon" id="dc20">?</div>Load balancing configured</div>
+          <div class="checklist-item"><div class="check-icon" id="dc21">?</div>Auto-scaling enabled</div>
+          <div class="checklist-item"><div class="check-icon" id="dc22">?</div>Backup / recovery procedure</div>
+          <div class="checklist-item"><div class="check-icon" id="dc23">?</div>Monitoring alerts set</div>
+          <div class="checklist-item"><div class="check-icon" id="dc24">?</div>Documentation complete</div>
+        </div>
+      </div>
+      <div id="deployProgress" style="margin-top:1rem;">
+        <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:.3rem;">
+          <span>Readiness</span>
+          <span id="deployPct">0 / 25</span>
+        </div>
+        <div style="height:12px;background:#f1f5f9;border-radius:6px;overflow:hidden;">
+          <div id="deployBar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--green),var(--teal));border-radius:6px;transition:width .5s;"></div>
+        </div>
+      </div>
+      <button onclick="animateChecklist()" style="margin-top:.75rem;padding:.4rem 1rem;background:var(--green);color:white;border:none;border-radius:6px;cursor:pointer;font-size:.85rem;">&#9658; Run Checklist</button>
+    </div>
+  </section>
+
+  <!-- Summary -->
+  <section id="summary">
+    <h2>&#127942; Workshop Complete: 5-Day Journey</h2>
+    <p>You've gone from GPU environment setup on Day 1 to a fully instrumented production LLM service on Day 5. Here is the full arc.</p>
+
+    <div class="day-grid">
+      <div class="day-tile" style="border-top:3px solid var(--accent);">
+        <div class="day-tile-num" style="color:var(--accent);">1</div>
+        <div class="day-tile-name">Setup &amp; Fundamentals</div>
+        <div style="font-size:.68rem;color:var(--text-muted);margin-top:.4rem;">Tokenization &middot; Embeddings &middot; Attention</div>
+      </div>
+      <div class="day-tile" style="border-top:3px solid var(--purple);">
+        <div class="day-tile-num" style="color:var(--purple);">2</div>
+        <div class="day-tile-name">LLM Architecture</div>
+        <div style="font-size:.68rem;color:var(--text-muted);margin-top:.4rem;">RMSNorm &middot; RoPE &middot; GQA &middot; SwiGLU</div>
+      </div>
+      <div class="day-tile" style="border-top:3px solid var(--orange);">
+        <div class="day-tile-num" style="color:var(--orange);">3</div>
+        <div class="day-tile-name">Fine-Tuning Ops</div>
+        <div style="font-size:.68rem;color:var(--text-muted);margin-top:.4rem;">LoRA &middot; Merge &middot; GGUF &middot; Ollama</div>
+      </div>
+      <div class="day-tile" style="border-top:3px solid var(--teal);">
+        <div class="day-tile-num" style="color:var(--teal);">4</div>
+        <div class="day-tile-name">RAG &amp; Inference</div>
+        <div style="font-size:.68rem;color:var(--text-muted);margin-top:.4rem;">FAISS &middot; MRR &middot; KV Cache &middot; Batching</div>
+      </div>
+      <div class="day-tile" style="border-top:3px solid var(--green);">
+        <div class="day-tile-num" style="color:var(--green);">5</div>
+        <div class="day-tile-name">Deploy &amp; Observe</div>
+        <div style="font-size:.68rem;color:var(--text-muted);margin-top:.4rem;">FastAPI &middot; Metrics &middot; Guardrails</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <tr><th>Day</th><th>Key concept</th><th>Key output</th></tr>
+        <tr><td>1</td><td>Tokenization &rarr; embedding &rarr; attention mechanics</td><td>GPT-2 forward pass, attention heatmap</td></tr>
+        <tr><td>2</td><td>RMSNorm, RoPE, GQA, SwiGLU, weight tying</td><td>NanoLlama v3 (51M params) trained from scratch</td></tr>
+        <tr><td>3</td><td>LoRA (W = W<sub>0</sub> + B&middot;A), merge_and_unload, GGUF</td><td>1.6 GB travel-expert Q4_K_M model running on CPU</td></tr>
+        <tr><td>4</td><td>Semantic embeddings, FAISS, MRR/nDCG, KV cache, batching</td><td>RAG pipeline + real benchmark numbers</td></tr>
+        <tr><td>5</td><td>ModelValidator, MetricsLogger, SafetyGuardrails, FastAPI</td><td>Production-ready deployment template</td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Production Skills Gained</h3>
+      <ul style="margin-left:1rem;">
+        <li><strong>Architecture design</strong>: Build a decoder transformer from scratch, understanding every component</li>
+        <li><strong>Efficient training</strong>: LoRA adapts 0.5% of parameters while preserving base model quality</li>
+        <li><strong>RAG systems</strong>: Semantic retrieval decouples knowledge from model weights &mdash; update in minutes</li>
+        <li><strong>Inference optimisation</strong>: KV cache (4x speedup) + batching (3&ndash;4x throughput)</li>
+        <li><strong>Observability</strong>: P50/P95/P99 latency, cost-per-request, sliding-window metrics</li>
+        <li><strong>Safety</strong>: Multi-layer filtering (input keyword, output pattern, rate limiting)</li>
+        <li><strong>Deployment</strong>: FastAPI + Docker + health/metrics endpoints production-ready</li>
+      </ul>
+    </div>
+
+    <div class="callout callout-green">
+      <strong>Next steps in your LLM journey</strong>
+      <ul style="margin-left:1rem;margin-top:.4rem;">
+        <li>Deploy the Day 3 travel-expert model via this Day 5 FastAPI template</li>
+        <li>Add a Grafana dashboard wired to the <code>/metrics</code> endpoint</li>
+        <li>Extend the RAG pipeline (Day 4) with real document ingestion and re-ranking</li>
+        <li>Explore vLLM for continuous batching at 5&ndash;10x higher throughput</li>
+        <li>Fine-tune on a custom dataset in your own domain using the Day 3 LoRA recipe</li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ── Sidebar ─────────────────────────────────────────
+const sidebar = document.getElementById('sidebar');
+const toggle  = document.getElementById('sidebarToggle');
+const STORE_KEY = 'sidebar-collapsed-day5';
+
+(function() {
+  if (localStorage.getItem(STORE_KEY) === 'true') sidebar.classList.add('collapsed');
+})();
+toggle.addEventListener('click', () => {
+  sidebar.classList.toggle('collapsed');
+  localStorage.setItem(STORE_KEY, sidebar.classList.contains('collapsed'));
+});
+
+// ── Scrollspy ───────────────────────────────────────
+const spy = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      document.querySelectorAll('.sidebar a').forEach(l => l.classList.remove('active'));
+      const lnk = document.querySelector(`.sidebar a[href="#${e.target.id}"]`);
+      if (lnk) lnk.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+document.querySelectorAll('section[id]').forEach(s => spy.observe(s));
+
+// ── Production pipeline step-through ────────────────
+const ppIds = ['pp-validate','pp-guard','pp-api','pp-metrics','pp-dash','pp-alert','pp-scale'];
+let ppStep = -1;
+
+function stepProdPipeline() {
+  ppIds.forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('lit'); });
+  ppStep = (ppStep + 1) % (ppIds.length + 1);
+  if (ppStep < ppIds.length) {
+    for (let i = 0; i <= ppStep; i++) {
+      const el = document.getElementById(ppIds[i]);
+      if (el) el.classList.add('lit');
+    }
+  } else {
+    ppStep = -1;
+  }
+}
+
+// ── Validation animation ─────────────────────────────
+const vcIds = ['vci-struct','vci-fwd','vci-det','vci-mem'];
+const vcLabels = ['Model structure valid', 'Forward pass OK (output: [1, 10])', 'Deterministic outputs', 'Memory OK: 0.47GB / 16.0GB'];
+
+function animateValidation() {
+  vcIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.classList.remove('done'); el.textContent = '?'; }
+  });
+  const status = document.getElementById('validationStatus');
+  if (status) { status.style.background = '#f8fafc'; status.style.color = 'var(--text-muted)'; status.textContent = 'Running checks...'; }
+
+  vcIds.forEach((id, i) => {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) { el.classList.add('done'); el.textContent = '✓'; }
+      if (i === vcIds.length - 1 && status) {
+        status.style.background = '#f0fdf4';
+        status.style.color = '#14532d';
+        status.textContent = '✓ APPROVED — All 4 checks passed. Model ready for production.';
+      }
+    }, (i + 1) * 500);
+  });
+}
+
+// ── Latency histogram canvas ─────────────────────────
+function drawLatencyCanvas() {
+  const canvas = document.getElementById('latencyCanvas');
+  if (!canvas) return;
+  const W = canvas.offsetWidth || 600;
+  const H = 180;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, W, H);
+
+  const pad = { l: 40, r: 20, t: 20, b: 30 };
+
+  // Simulated bin counts for N(150,50) over 100 requests
+  const bins    = [0, 50, 100, 150, 200, 300, 500, 1000];
+  const counts  = [1, 5, 22, 35, 26, 9, 2];
+  const binMids = bins.slice(0, -1).map((b, i) => (b + bins[i + 1]) / 2);
+  const maxCount = Math.max(...counts);
+
+  const innerW = W - pad.l - pad.r;
+  const innerH = H - pad.t - pad.b;
+  const barW = innerW / counts.length - 4;
+
+  // Bars
+  counts.forEach((c, i) => {
+    const x = pad.l + i * (innerW / counts.length) + 2;
+    const barH = (c / maxCount) * innerH;
+    const y = pad.t + innerH - barH;
+    ctx.fillStyle = 'rgba(59,130,246,.7)';
+    ctx.fillRect(x, y, barW, barH);
+    // Bin label
+    ctx.fillStyle = '#94a3b8'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(bins[i], x + barW / 2, H - pad.b + 14);
+  });
+
+  // Percentile lines
+  const percentiles = [
+    { val: 150, color: '#ef4444', label: 'P50' },
+    { val: 230, color: '#f59e0b', label: 'P95' },
+    { val: 270, color: '#8b5cf6', label: 'P99' },
+  ];
+
+  percentiles.forEach(p => {
+    // Find x position (linear interpolation between bins)
+    const frac = Math.min((p.val - bins[0]) / (bins[bins.length - 1] - bins[0]), 1);
+    const x = pad.l + frac * innerW;
+    ctx.beginPath();
+    ctx.strokeStyle = p.color;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.moveTo(x, pad.t);
+    ctx.lineTo(x, H - pad.b);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = p.color;
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(p.label, x, pad.t - 5);
+  });
+
+  // Y axis
+  ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, H - pad.b); ctx.stroke();
+  ctx.fillStyle = '#94a3b8'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+  [0, maxCount / 2, maxCount].forEach(v => {
+    const y = pad.t + innerH - (v / maxCount) * innerH;
+    ctx.fillText(Math.round(v), pad.l - 5, y + 4);
+  });
+
+  // X axis label
+  ctx.fillStyle = '#64748b'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('Latency (ms)', pad.l + innerW / 2, H - 2);
+}
+
+window.addEventListener('DOMContentLoaded', drawLatencyCanvas);
+window.addEventListener('resize', drawLatencyCanvas);
+
+// ── Live dashboard animation ─────────────────────────
+let dashTimer = null;
+let dashReq = 0;
+
+function animateDashboard() {
+  if (dashTimer) clearInterval(dashTimer);
+  dashReq = 0;
+
+  const targets = { p50: 150, p95: 232, p99: 268, tps: 447, cost: 0.000112, total: 0.0112 };
+
+  dashTimer = setInterval(() => {
+    dashReq += 1;
+    if (dashReq > 100) { clearInterval(dashTimer); dashTimer = null; return; }
+
+    const pct = dashReq / 100;
+    const jitter = () => 1 + (Math.random() - 0.5) * 0.05;
+
+    function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+
+    setText('dd-req',    dashReq);
+    setText('dd-uptime', (dashReq * 0.0003).toFixed(3));
+    setText('dd-p50',    Math.round(targets.p50 * pct * jitter()) + ' ms');
+    setText('dd-p95',    Math.round(targets.p95 * pct * jitter()) + ' ms');
+    setText('dd-p99',    Math.round(targets.p99 * pct * jitter()) + ' ms');
+    setText('dd-tps',    Math.round(targets.tps * pct * jitter()));
+    setText('dd-cost',   '$' + (targets.cost * pct).toFixed(6));
+    setText('dd-total',  '$' + (targets.total * pct).toFixed(4));
+  }, 60);
+}
+
+// ── Safety check demo ────────────────────────────────
+function runSafetyCheck(row, text, isSafe, reason) {
+  const result = document.getElementById('safetyResult');
+  if (!result) return;
+
+  if (isSafe) {
+    result.style.background = '#f0fdf4';
+    result.style.color = '#14532d';
+    result.innerHTML = '<strong>✓ SAFE</strong> &mdash; "' + text.substring(0, 50) + '" &rarr; ' + reason;
+  } else {
+    result.style.background = '#fef2f2';
+    result.style.color = '#7f1d1d';
+    result.innerHTML = '<strong>✗ BLOCKED</strong> &mdash; "' + text.substring(0, 50) + '" &rarr; ' + reason;
+  }
+}
+
+// ── Request lifecycle animation ──────────────────────
+const rlIds = ['rl-in','rl-guard-in','rl-infer','rl-guard-out','rl-log','rl-out'];
+const rlColors = ['#dbeafe','#fef3c7','#ede9fe','#fef3c7','#d1fae5','#dbeafe'];
+
+function animateRequestLifecycle() {
+  rlIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.background = 'var(--card)'; el.style.borderColor = 'var(--border)'; }
+  });
+
+  rlIds.forEach((id, i) => {
+    setTimeout(() => {
+      // Previous step fades back
+      if (i > 0) {
+        const prev = document.getElementById(rlIds[i - 1]);
+        if (prev) { prev.style.background = '#f0fdf4'; prev.style.borderColor = 'var(--green)'; }
+      }
+      const el = document.getElementById(id);
+      if (el) { el.style.background = rlColors[i]; el.style.borderColor = 'var(--accent)'; }
+    }, i * 600);
+  });
+}
+
+// ── Checklist animation ──────────────────────────────
+const TOTAL_CHECKS = 25;
+
+function animateChecklist() {
+  for (let i = 0; i < TOTAL_CHECKS; i++) {
+    const el = document.getElementById('dc' + i);
+    if (el) { el.classList.remove('done'); el.textContent = '?'; }
+  }
+  const bar = document.getElementById('deployBar');
+  const pct = document.getElementById('deployPct');
+  if (bar) bar.style.width = '0%';
+  if (pct) pct.textContent = '0 / 25';
+
+  for (let i = 0; i < TOTAL_CHECKS; i++) {
+    setTimeout(() => {
+      const el = document.getElementById('dc' + i);
+      if (el) { el.classList.add('done'); el.textContent = '✓'; }
+      const done = i + 1;
+      if (bar) bar.style.width = (done / TOTAL_CHECKS * 100) + '%';
+      if (pct) pct.textContent = done + ' / ' + TOTAL_CHECKS;
+    }, i * 120);
+  }
+}
+
+// Auto-trigger latency canvas when section visible
+const sec3El = document.getElementById('sec3');
+if (sec3El) {
+  new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting) { drawLatencyCanvas(); }
+  }, { threshold: 0.3 }).observe(sec3El);
+}
+</script>
+</body>
+</html>
